@@ -1,0 +1,23 @@
+Anjali Nair
+anjali.nair@email.com
+
+PROFESSIONAL SUMMARY
+Business Intelligence Developer with 3 years experience creating data-driven
+insights and reports for executive stakeholders.
+
+TECHNICAL SKILLS
+SQL, Tableau, Power BI, Python, Excel, SAP BusinessObjects,
+Data Warehousing, ETL, SSRS, SSAS, QlikView, Data Modeling
+
+EXPERIENCE
+BI Developer | Enterprise Solutions | 2021 - Present (3 years)
+- Developed 50+ Tableau dashboards for C-suite
+- Optimized SQL queries reducing report time by 60%
+- Implemented row-level security in Power BI
+
+Junior BI Developer | Reports Inc | 2020 - 2021 (1 year)
+- Maintained existing SSRS reports
+- Created ad-hoc analysis for sales team
+
+EDUCATION
+B.Tech Information Systems | VIT | 2020

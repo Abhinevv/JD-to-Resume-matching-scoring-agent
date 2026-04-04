@@ -1,0 +1,24 @@
+Divya Krishnan | divya.k@email.com
+
+PROFILE
+Cloud Data Architect with 8 years of experience designing enterprise-scale
+data platforms and cloud migration strategies.
+
+EXPERTISE
+AWS, Azure, GCP, Terraform, Kubernetes, Docker, Spark, Databricks,
+Snowflake, Redshift, BigQuery, Kafka, Airflow, Python, Scala,
+Data Architecture, Data Governance, Security, Cost Optimization
+
+CAREER HISTORY
+Principal Data Architect | CloudFirst | 2019 - Present (5 years)
+- Architected multi-cloud data platform for Fortune 500 client
+- Led data lake modernization (AWS + Databricks)
+- Defined data governance frameworks
+
+Senior Data Engineer | CloudTech | 2016 - 2019 (3 years)
+- Built real-time streaming platform on AWS Kinesis
+- Migrated 50TB legacy data warehouse to Redshift
+
+EDUCATION
+M.S. Computer Science | University of Texas | 2016
+B.Tech CSE | Anna University | 2014

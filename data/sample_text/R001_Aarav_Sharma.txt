@@ -1,0 +1,29 @@
+Aarav Sharma
+Email: aarav.sharma@email.com | Phone: +91-9876543210
+
+PROFESSIONAL SUMMARY
+Senior Data Scientist with 6 years of experience in machine learning, deep learning,
+and data analytics. Proficient in Python, TensorFlow, PyTorch, and cloud platforms.
+
+SKILLS
+Python, Machine Learning, Deep Learning, TensorFlow, PyTorch, Scikit-learn,
+NLP, Computer Vision, SQL, AWS, Docker, Kubernetes, Spark, Hadoop,
+Data Visualization, Tableau, Power BI, Statistics, A/B Testing
+
+EXPERIENCE
+Senior Data Scientist | TechCorp India | 2020 - Present (4 years)
+- Built recommendation engine improving CTR by 35%
+- Developed NLP pipeline for sentiment analysis
+- Led team of 5 data scientists
+
+Data Scientist | StartupXYZ | 2018 - 2020 (2 years)
+- Implemented predictive models for churn analysis
+- Built automated ML pipelines using Airflow
+
+EDUCATION
+M.Tech Computer Science | IIT Bombay | 2018
+B.Tech Computer Science | NIT Trichy | 2016
+
+CERTIFICATIONS
+AWS Certified Machine Learning Specialty
+Google Professional Data Engineer

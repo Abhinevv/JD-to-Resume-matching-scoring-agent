@@ -1,0 +1,24 @@
+ROHIT VERMA - DATA ENGINEER
+rohit.verma@gmail.com | LinkedIn: linkedin.com/in/rohitverma
+
+PROFILE
+Data Engineer with 5 years of experience designing and maintaining data pipelines,
+ETL processes, and data warehousing solutions.
+
+SKILLS
+Python, Spark, Hadoop, Kafka, Airflow, SQL, PostgreSQL, MongoDB,
+AWS Glue, Redshift, S3, EMR, Databricks, dbt, Snowflake,
+Data Modeling, ETL, Data Warehousing, Docker, Linux
+
+EXPERIENCE
+Senior Data Engineer | DataFlow Technologies | 2021 - Present (3 years)
+- Designed real-time data pipeline processing 10M events/day using Kafka
+- Migrated on-premise data warehouse to Snowflake (50% cost reduction)
+- Built automated data quality checks
+
+Data Engineer | Analytics Corp | 2019 - 2021 (2 years)
+- Developed ETL pipelines using Apache Spark
+- Created data marts for business intelligence
+
+EDUCATION
+B.Tech Computer Science | Delhi University | 2019

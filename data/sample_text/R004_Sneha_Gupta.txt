@@ -1,0 +1,25 @@
+Sneha Gupta
+sneha.gupta@outlook.com | +91-8765432109
+
+OBJECTIVE
+Aspiring Data Analyst with 2 years of experience in data analysis,
+visualization, and reporting. Seeking to leverage analytical skills.
+
+SKILLS
+Python, R, SQL, Excel, Tableau, Power BI, Pandas, NumPy,
+Matplotlib, Seaborn, Statistics, Data Cleaning, Data Visualization,
+Business Intelligence, Google Analytics
+
+WORK HISTORY
+Data Analyst | BizInsights | 2022 - Present (2 years)
+- Created dashboards tracking KPIs for 10+ business units
+- Performed A/B test analysis for marketing campaigns
+- Automated weekly reports saving 10 hours/week
+
+Data Analyst Intern | MarketResearch Co | 2021 - 2022 (1 year)
+- Conducted market research and competitor analysis
+- Built Excel models for financial forecasting
+
+EDUCATION
+MBA Business Analytics | Symbiosis | 2021
+B.Com | Mumbai University | 2019

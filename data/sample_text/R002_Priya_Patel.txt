@@ -1,0 +1,24 @@
+Priya Patel
+Email: priya.patel@email.com
+
+SUMMARY
+Full Stack Developer with 4 years experience building scalable web applications.
+Strong expertise in React, Node.js, and cloud infrastructure.
+
+TECHNICAL SKILLS
+JavaScript, TypeScript, React, Node.js, Express, MongoDB, PostgreSQL,
+Redis, Docker, AWS, CI/CD, Git, REST APIs, GraphQL, HTML, CSS,
+Webpack, Jest, Agile, Microservices
+
+WORK EXPERIENCE
+Full Stack Developer | WebSolutions Pvt Ltd | 2021 - Present (3 years)
+- Developed e-commerce platform serving 100k+ users
+- Implemented real-time chat using WebSockets
+- Reduced page load time by 40%
+
+Junior Developer | CodeBase Inc | 2020 - 2021 (1 year)
+- Built RESTful APIs for mobile applications
+- Maintained legacy PHP applications
+
+EDUCATION
+B.E. Information Technology | Pune University | 2020

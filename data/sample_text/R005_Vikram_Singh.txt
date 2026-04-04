@@ -1,0 +1,24 @@
+Vikram Singh | vikram.singh@email.com
+
+ABOUT ME
+Machine Learning Engineer with 7 years of experience deploying ML models
+at scale. Expert in MLOps, model serving, and production ML systems.
+
+CORE COMPETENCIES
+Python, Machine Learning, MLOps, Kubernetes, Docker, TensorFlow, PyTorch,
+Scikit-learn, MLflow, Kubeflow, FastAPI, Redis, Kafka, AWS SageMaker,
+Feature Engineering, Model Monitoring, A/B Testing, Statistical Modeling
+
+PROFESSIONAL EXPERIENCE
+ML Engineer Lead | AI Platform Co | 2020 - Present (4 years)
+- Built ML platform serving 50+ models in production
+- Reduced model deployment time from weeks to hours
+- Implemented automated retraining pipelines
+
+ML Engineer | DeepTech | 2017 - 2020 (3 years)
+- Developed computer vision models for defect detection
+- Optimized model inference (5x speed improvement)
+
+EDUCATION
+M.S. Machine Learning | Carnegie Mellon University | 2017
+B.Tech ECE | IIT Delhi | 2015

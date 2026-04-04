@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ResumeAI Matcher</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Resume Intelligence Workspace</p>
+        <h1>Resume matcher, rebuilt with HTML, CSS, and JavaScript.</h1>
+        <p class="hero-text">
+          Run the resume pipeline from a browser-first UI, explore ranked candidates,
+          and inspect database records without Streamlit.
+        </p>
+        <div class="hero-actions">
+          <a href="#workspace" class="button button-primary">Open Workspace</a>
+          <a href="/docs" class="button button-secondary" target="_blank" rel="noreferrer">API Docs</a>
+        </div>
+      </div>
+      <div class="hero-panel">
+        <div class="mini-stat">
+          <span>Frontend</span>
+          <strong>Vanilla JS</strong>
+        </div>
+        <div class="mini-stat">
+          <span>Backend</span>
+          <strong>FastAPI</strong>
+        </div>
+        <div class="mini-stat">
+          <span>Modes</span>
+          <strong>Upload + Sample</strong>
+        </div>
+      </div>
+    </header>
+
+    <main id="workspace" class="workspace">
+      <section class="control-panel">
+        <div class="panel-heading">
+          <p class="eyebrow">Pipeline Controls</p>
+          <h2>Configure the run</h2>
+        </div>
+
+        <div class="settings-grid">
+          <label class="field">
+            <span>K-Means Clusters</span>
+            <input id="nClusters" type="range" min="2" max="8" value="4">
+            <strong id="nClustersValue">4</strong>
+          </label>
+          <label class="field">
+            <span>Semantic Weight</span>
+            <input id="semanticWeight" type="range" min="0" max="1" step="0.05" value="0.45">
+            <strong id="semanticWeightValue">0.45</strong>
+          </label>
+          <label class="field">
+            <span>Skill Weight</span>
+            <input id="skillWeight" type="range" min="0" max="1" step="0.05" value="0.35">
+            <strong id="skillWeightValue">0.35</strong>
+          </label>
+          <label class="field">
+            <span>Experience Weight</span>
+            <input id="experienceWeight" type="range" min="0" max="1" step="0.05" value="0.20">
+            <strong id="experienceWeightValue">0.20</strong>
+          </label>
+          <label class="field">
+            <span>Apriori Min Support</span>
+            <input id="minSupport" type="range" min="0.1" max="0.8" step="0.05" value="0.20">
+            <strong id="minSupportValue">0.20</strong>
+          </label>
+        </div>
+
+        <p id="weightWarning" class="weight-note"></p>
+      </section>
+
+      <section class="input-grid">
+        <article class="panel">
+          <div class="panel-tabs">
+            <button class="tab-button active" data-tab="uploadTab">Upload Files</button>
+            <button class="tab-button" data-tab="sampleTab">Use Sample Data</button>
+          </div>
+
+          <div id="uploadTab" class="tab-pane active">
+            <div class="stack">
+              <label class="field">
+                <span>Job Description</span>
+                <textarea id="jdText" rows="10" placeholder="Paste the job description here..."></textarea>
+              </label>
+              <label class="field">
+                <span>Resumes</span>
+                <input id="resumeFiles" type="file" accept=".pdf,.png,.jpg,.jpeg,.txt" multiple>
+              </label>
+              <div id="resumeFileList" class="file-list muted">No files selected yet.</div>
+              <button id="runUploadButton" class="button button-primary">Run Matching Pipeline</button>
+            </div>
+          </div>
+
+          <div id="sampleTab" class="tab-pane">
+            <div class="stack">
+              <label class="field">
+                <span>Target Role</span>
+                <select id="sampleRole">
+                  <option value="data_scientist">data_scientist</option>
+                  <option value="data_engineer">data_engineer</option>
+                </select>
+              </label>
+              <p class="muted">Uses the built-in synthetic resumes and role profiles from the backend.</p>
+              <button id="runSampleButton" class="button button-primary">Run on Sample Data</button>
+            </div>
+          </div>
+        </article>
+
+        <aside class="panel status-panel">
+          <div class="panel-heading">
+            <p class="eyebrow">System</p>
+            <h2>Session status</h2>
+          </div>
+          <div id="statusBox" class="status-box idle">Ready.</div>
+          <div class="status-meta">
+            <div>
+              <span>Frontend route</span>
+              <strong>/</strong>
+            </div>
+            <div>
+              <span>API docs</span>
+              <strong>/docs</strong>
+            </div>
+            <div>
+              <span>Health</span>
+              <strong id="healthBadge">Checking…</strong>
+            </div>
+          </div>
+          <button id="refreshDatabaseButton" class="button button-secondary">Refresh Database View</button>
+        </aside>
+      </section>
+
+      <section id="resultsSection" class="results-section hidden">
+        <div class="summary-grid" id="summaryGrid"></div>
+
+        <div class="panel results-layout">
+          <div class="results-nav">
+            <button class="results-tab active" data-results-tab="rankingsPanel">Rankings</button>
+            <button class="results-tab" data-results-tab="analyticsPanel">Analytics</button>
+            <button class="results-tab" data-results-tab="miningPanel">Data Mining</button>
+            <button class="results-tab" data-results-tab="databasePanel">Database</button>
+          </div>
+
+          <div id="rankingsPanel" class="results-pane active">
+            <div class="two-column">
+              <div>
+                <h3>Ranked candidates</h3>
+                <div id="rankingsList" class="card-stack"></div>
+              </div>
+              <div>
+                <div class="detail-header">
+                  <h3>Explainability</h3>
+                  <select id="candidateSelect"></select>
+                </div>
+                <div id="candidateDetail" class="detail-card"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="analyticsPanel" class="results-pane">
+            <div class="analytics-grid">
+              <div class="metric-surface">
+                <h3>Score comparison</h3>
+                <div id="scoreChart"></div>
+              </div>
+              <div class="metric-surface">
+                <h3>Skill frequency</h3>
+                <div id="skillChart"></div>
+              </div>
+              <div class="metric-surface">
+                <h3>Role distribution</h3>
+                <div id="roleChart"></div>
+              </div>
+              <div class="metric-surface">
+                <h3>Skill gap</h3>
+                <div id="skillGapChart"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="miningPanel" class="results-pane">
+            <div class="analytics-grid">
+              <div class="metric-surface">
+                <h3>Frequent skill patterns</h3>
+                <div id="itemsetsTable"></div>
+              </div>
+              <div class="metric-surface">
+                <h3>Association rules</h3>
+                <div id="rulesTable"></div>
+              </div>
+              <div class="metric-surface full-width">
+                <h3>Cluster profiles</h3>
+                <div id="clusterProfiles"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="databasePanel" class="results-pane">
+            <div class="summary-grid compact" id="databaseSummary"></div>
+            <div class="metric-surface">
+              <div class="table-header">
+                <h3>Stored resume records</h3>
+                <button id="downloadCsvButton" class="button button-secondary">Download CSV</button>
+              </div>
+              <div id="databaseTable"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>

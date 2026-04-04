@@ -1,0 +1,26 @@
+KARAN MEHTA
+karan.mehta@gmail.com | GitHub: github.com/karanml
+
+SUMMARY
+NLP Research Engineer with 5 years of experience in natural language processing,
+large language models, and conversational AI systems.
+
+SKILLS
+Python, NLP, Transformers, BERT, GPT, LLMs, HuggingFace, PyTorch,
+TensorFlow, Spacy, NLTK, Information Extraction, Text Classification,
+Named Entity Recognition, Question Answering, Machine Translation,
+Vector Databases, FAISS, Langchain, RAG
+
+EXPERIENCE
+NLP Engineer | AI Research Lab | 2021 - Present (3 years)
+- Fine-tuned BERT models for domain-specific classification
+- Built RAG system for enterprise knowledge base
+- Published 3 research papers in ACL/EMNLP
+
+ML Engineer | Chatbot Company | 2019 - 2021 (2 years)
+- Developed intent recognition system (95% accuracy)
+- Built multilingual NLP pipeline supporting 8 languages
+
+EDUCATION
+M.Tech AI | IISc Bangalore | 2019
+B.E. CSE | BITS Pilani | 2017

@@ -1,0 +1,21 @@
+Job Title: Data Engineer
+Company: DataStream Technologies
+Location: Hyderabad / Remote
+
+Role Overview:
+Join our data platform team to build and maintain scalable data infrastructure
+that powers business intelligence and analytics.
+
+Must-Have Skills:
+- 3+ years in Data Engineering
+- Strong Python and SQL skills
+- Experience with Apache Spark and distributed computing
+- Knowledge of data pipeline tools (Airflow, Kafka)
+- Experience with cloud data warehouses (Snowflake, Redshift, BigQuery)
+- Familiarity with containerization (Docker, Kubernetes)
+- ETL/ELT pipeline development
+
+Nice to Have:
+- Experience with dbt
+- Knowledge of data modeling and dimensional modeling
+- Databricks experience

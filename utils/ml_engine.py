@@ -34,6 +34,8 @@ CLASSIFIER_PATH = os.path.join(MODEL_DIR, "role_classifier.pkl")
 VECTORIZER_PATH = os.path.join(MODEL_DIR, "tfidf_vectorizer.pkl")
 ENCODER_PATH    = os.path.join(MODEL_DIR, "label_encoder.pkl")
 KMEANS_PATH     = os.path.join(MODEL_DIR, "kmeans.pkl")
+MINED_SKILLS_PATH = os.path.join(MODEL_DIR, "mined_skills.json")
+DATASET_KMEANS_PATH = os.path.join(MODEL_DIR, "dataset_kmeans.pkl")
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +167,19 @@ class RoleClassifier:
 
 # Singleton
 role_classifier = RoleClassifier()
+
+
+def trained_classifier_ready() -> bool:
+    """True if a persisted TF-IDF + Logistic Regression role model is on disk."""
+    return all(
+        os.path.exists(p) for p in (CLASSIFIER_PATH, VECTORIZER_PATH, ENCODER_PATH)
+    )
+
+
+def reload_role_classifier() -> None:
+    """Reload the global role classifier after new training (picks up new pickles)."""
+    global role_classifier
+    role_classifier = RoleClassifier()
 
 
 # ---------------------------------------------------------------------------

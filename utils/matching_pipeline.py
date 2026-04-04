@@ -1,47 +1,35 @@
 """
 utils/matching_pipeline.py
 ---------------------------
-Orchestrates the entire end-to-end matching workflow:
-  1. Preprocess resumes + JD
-  2. Encode embeddings
-  3. Store in FAISS + SQLite
-  4. Train / use role classifier
-  5. K-Means clustering
-  6. Score + rank candidates
-  7. Run Apriori on skill patterns
-  8. Return all results + artefacts for the UI
+Orchestrates the end-to-end resume matching workflow.
 """
 
 import uuid
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from utils.preprocessing import preprocess_resume, preprocess_job_description
+from utils.preprocessing import preprocess_job_description, preprocess_resume
 from utils.ml_engine import (
-    encode_texts,
+    cluster_resumes,
     compute_cosine_similarity,
+    compute_experience_score,
     compute_final_score,
     compute_skill_overlap,
-    compute_experience_score,
-    cluster_resumes,
+    encode_texts,
     generate_explanation,
     role_classifier,
 )
 from utils.data_mining import (
-    run_apriori,
     get_skill_frequencies,
     profile_clusters,
+    run_apriori,
     skill_gap_analysis,
 )
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Public entry-point
-# ---------------------------------------------------------------------------
 
 def run_matching_pipeline(
     raw_resumes: List[Dict],
@@ -50,166 +38,171 @@ def run_matching_pipeline(
     min_support: float = 0.2,
     score_weights: Optional[Dict] = None,
 ) -> Dict:
-    """
-    Full pipeline.
-
-    Parameters
-    ----------
-    raw_resumes  : list of dicts with keys {resume_id, name, raw_text}
-    jd_text      : raw job description string
-    n_clusters   : K for K-Means
-    min_support  : Apriori support threshold
-    score_weights: optional dict {semantic, skill, experience}
-
-    Returns
-    -------
-    dict with keys:
-      ranked_candidates, jd_info, apriori_itemsets, apriori_rules,
-      skill_frequencies, cluster_profiles, skill_gap,
-      embeddings, cluster_labels, resume_names
-    """
-
+    """Run the resume-to-job matching pipeline."""
     if not raw_resumes:
         return {"error": "No resumes provided."}
     if not jd_text.strip():
         return {"error": "Job description is empty."}
 
-    # ------------------------------------------------------------------
-    # Step 1 – Preprocess
-    # ------------------------------------------------------------------
-    logger.info("Step 1: Preprocessing …")
-    processed_resumes = []
-    for r in raw_resumes:
-        processed = preprocess_resume(r["raw_text"])
-        processed["resume_id"] = r.get("resume_id", str(uuid.uuid4())[:8])
-        processed["name"]      = r.get("name", "Unknown")
-        processed["filename"]  = r.get("filename", "")
-        processed_resumes.append(processed)
-
+    logger.info("Step 1: Preprocessing ...")
+    processed_resumes = _process_resumes(raw_resumes)
     jd_info = preprocess_job_description(jd_text)
 
-    # ------------------------------------------------------------------
-    # Step 2 – Embeddings
-    # ------------------------------------------------------------------
-    logger.info("Step 2: Encoding embeddings …")
-    resume_texts = [r["processed_text"] for r in processed_resumes]
-    jd_processed = jd_info["processed_text"]
+    logger.info("Step 2: Encoding embeddings ...")
+    resume_embeddings, jd_embedding = _build_embeddings(processed_resumes, jd_info)
 
-    all_texts      = resume_texts + [jd_processed]
-    all_embeddings = encode_texts(all_texts)
+    logger.info("Step 3: Role classification ...")
+    _train_role_classifier(raw_resumes, processed_resumes)
+    _assign_predicted_roles(processed_resumes)
 
-    resume_embeddings = all_embeddings[:-1].astype("float32")
-    jd_embedding      = all_embeddings[-1].astype("float32")
+    logger.info("Step 4: Clustering ...")
+    cluster_labels = _assign_clusters(processed_resumes, resume_embeddings, n_clusters)
 
-    # ------------------------------------------------------------------
-    # Step 3 – Train role classifier (use sample labels if available)
-    # ------------------------------------------------------------------
-    logger.info("Step 3: Role classification …")
-    role_labels = [r.get("role", "") for r in raw_resumes]
-    if any(role_labels):
-        valid_pairs = [(rt, rl) for rt, rl in zip(resume_texts, role_labels) if rl]
-        if len(valid_pairs) >= 2:
-            vt, vl = zip(*valid_pairs)
-            role_classifier.train(list(vt), list(vl))
+    logger.info("Step 5: Scoring ...")
+    ranked = _rank_candidates(
+        processed_resumes=processed_resumes,
+        resume_embeddings=resume_embeddings,
+        jd_info=jd_info,
+        jd_embedding=jd_embedding,
+        cluster_labels=cluster_labels,
+        score_weights=score_weights,
+    )
 
-    for r, emb in zip(processed_resumes, resume_embeddings):
-        r["predicted_role"] = role_classifier.predict(r["processed_text"])
-
-    # ------------------------------------------------------------------
-    # Step 4 – K-Means clustering
-    # ------------------------------------------------------------------
-    logger.info("Step 4: Clustering …")
-    k = min(n_clusters, len(processed_resumes))
-    cluster_labels_arr, _ = cluster_resumes(resume_embeddings, n_clusters=k)
-    cluster_labels = cluster_labels_arr.tolist()
-
-    for r, lbl in zip(processed_resumes, cluster_labels):
-        r["cluster_label"] = int(lbl)
-
-    # ------------------------------------------------------------------
-    # Step 5 – Score every resume
-    # ------------------------------------------------------------------
-    logger.info("Step 5: Scoring …")
-    req_exp    = jd_info.get("required_experience", 0.0)
-    jd_skills  = jd_info.get("required_skills", [])
-
-    ranked = []
-    for r, r_emb, cl in zip(processed_resumes, resume_embeddings, cluster_labels):
-        sem   = compute_cosine_similarity(r_emb, jd_embedding)
-        skill = compute_skill_overlap(r.get("skills", []), jd_skills)
-        exp   = compute_experience_score(r.get("experience_years", 0.0), req_exp)
-        final = compute_final_score(sem, skill, exp, weights=score_weights)
-
-        r["semantic_similarity"] = sem
-        r["skill_overlap"]       = skill
-        r["experience_score"]    = exp
-        r["match_score"]         = final
-
-        explanation = generate_explanation(r, jd_info, sem, final, int(cl))
-        ranked.append({**r, **explanation})
-
-    # Sort descending
-    ranked.sort(key=lambda x: x["match_score"], reverse=True)
-
-    # ------------------------------------------------------------------
-    # Step 6 – Persist to DB (non-blocking — skip on failure)
-    # ------------------------------------------------------------------
     _persist_to_db(ranked)
 
-    # ------------------------------------------------------------------
-    # Step 7 – Data mining
-    # ------------------------------------------------------------------
-    logger.info("Step 7: Data mining …")
-    skill_lists = [r.get("skills", []) for r in processed_resumes]
+    logger.info("Step 6: Data mining ...")
+    skill_lists = [resume.get("skills", []) for resume in processed_resumes]
+    frequent_itemsets, rules = run_apriori(skill_lists, min_support=min_support, min_confidence=0.4)
+    skill_frequencies = get_skill_frequencies(skill_lists)
+    cluster_profiles = profile_clusters(processed_resumes, cluster_labels)
+    skill_gap = skill_gap_analysis(jd_info.get("required_skills", []), skill_lists)
 
-    freq_itemsets, rules = run_apriori(
-        skill_lists, min_support=min_support, min_confidence=0.4
-    )
-    skill_freq   = get_skill_frequencies(skill_lists)
-    cluster_prof = profile_clusters(processed_resumes, cluster_labels)
-    skill_gap    = skill_gap_analysis(jd_skills, skill_lists)
+    _store_faiss(resume_embeddings, [resume["resume_id"] for resume in processed_resumes])
 
-    # ------------------------------------------------------------------
-    # Step 8 – FAISS store (non-blocking)
-    # ------------------------------------------------------------------
-    _store_faiss(resume_embeddings, [r["resume_id"] for r in processed_resumes])
-
-    logger.info(f"Pipeline complete. {len(ranked)} candidates ranked.")
-
+    logger.info("Pipeline complete. %s candidates ranked.", len(ranked))
     return {
         "ranked_candidates": ranked,
-        "jd_info":           jd_info,
-        "apriori_itemsets":  freq_itemsets,
-        "apriori_rules":     rules,
-        "skill_frequencies": skill_freq,
-        "cluster_profiles":  cluster_prof,
-        "skill_gap":         skill_gap,
-        "embeddings":        resume_embeddings,
-        "cluster_labels":    cluster_labels,
-        "resume_names":      [r["name"] for r in processed_resumes],
+        "jd_info": jd_info,
+        "apriori_itemsets": frequent_itemsets,
+        "apriori_rules": rules,
+        "skill_frequencies": skill_frequencies,
+        "cluster_profiles": cluster_profiles,
+        "skill_gap": skill_gap,
+        "embeddings": resume_embeddings,
+        "cluster_labels": cluster_labels,
+        "resume_names": [resume["name"] for resume in processed_resumes],
     }
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+def _process_resumes(raw_resumes: List[Dict]) -> List[Dict]:
+    """Normalize incoming raw resumes into processed resume records."""
+    processed_resumes: List[Dict] = []
+    for raw_resume in raw_resumes:
+        processed = preprocess_resume(raw_resume["raw_text"])
+        processed.update(
+            {
+                "resume_id": raw_resume.get("resume_id", str(uuid.uuid4())[:8]),
+                "name": raw_resume.get("name", "Unknown"),
+                "filename": raw_resume.get("filename", ""),
+            }
+        )
+        processed_resumes.append(processed)
+    return processed_resumes
 
-def _persist_to_db(ranked_resumes: List[Dict]):
+
+def _build_embeddings(processed_resumes: List[Dict], jd_info: Dict) -> Tuple[np.ndarray, np.ndarray]:
+    """Encode resume texts and job description into embedding vectors."""
+    resume_texts = [resume["processed_text"] for resume in processed_resumes]
+    all_texts = resume_texts + [jd_info["processed_text"]]
+    all_embeddings = encode_texts(all_texts)
+    return all_embeddings[:-1].astype("float32"), all_embeddings[-1].astype("float32")
+
+
+def _train_role_classifier(raw_resumes: List[Dict], processed_resumes: List[Dict]) -> None:
+    """Train the role classifier when labeled sample roles are available."""
+    if role_classifier.trained:
+        # Persisted model (e.g. trained on Kaggle CSV) — do not overwrite with a tiny upload batch.
+        return
+    labeled_pairs = [
+        (processed["processed_text"], raw.get("role", ""))
+        for raw, processed in zip(raw_resumes, processed_resumes)
+        if raw.get("role")
+    ]
+    if len(labeled_pairs) < 2:
+        return
+
+    texts, labels = zip(*labeled_pairs)
+    role_classifier.train(list(texts), list(labels))
+
+
+def _assign_predicted_roles(processed_resumes: List[Dict]) -> None:
+    """Populate predicted roles for each processed resume."""
+    for resume in processed_resumes:
+        resume["predicted_role"] = role_classifier.predict(resume["processed_text"])
+
+
+def _assign_clusters(processed_resumes: List[Dict], resume_embeddings: np.ndarray, n_clusters: int) -> List[int]:
+    """Cluster resumes and store cluster labels on each record."""
+    k = min(n_clusters, len(processed_resumes))
+    cluster_labels, _ = cluster_resumes(resume_embeddings, n_clusters=k)
+    cluster_ids = cluster_labels.tolist()
+    for resume, cluster_id in zip(processed_resumes, cluster_ids):
+        resume["cluster_label"] = int(cluster_id)
+    return cluster_ids
+
+
+def _rank_candidates(
+    processed_resumes: List[Dict],
+    resume_embeddings: np.ndarray,
+    jd_info: Dict,
+    jd_embedding: np.ndarray,
+    cluster_labels: List[int],
+    score_weights: Optional[Dict],
+) -> List[Dict]:
+    """Compute scores, explanations, and final ranking for each resume."""
+    required_experience = jd_info.get("required_experience", 0.0)
+    jd_skills = jd_info.get("required_skills", [])
+    ranked: List[Dict] = []
+
+    for resume, resume_embedding, cluster_id in zip(processed_resumes, resume_embeddings, cluster_labels):
+        semantic_score = compute_cosine_similarity(resume_embedding, jd_embedding)
+        skill_score = compute_skill_overlap(resume.get("skills", []), jd_skills)
+        experience_score = compute_experience_score(resume.get("experience_years", 0.0), required_experience)
+        final_score = compute_final_score(
+            semantic_score,
+            skill_score,
+            experience_score,
+            weights=score_weights,
+        )
+
+        resume["semantic_similarity"] = semantic_score
+        resume["skill_overlap"] = skill_score
+        resume["experience_score"] = experience_score
+        resume["match_score"] = final_score
+
+        explanation = generate_explanation(resume, jd_info, semantic_score, final_score, int(cluster_id))
+        ranked.append({**resume, **explanation})
+
+    ranked.sort(key=lambda item: item["match_score"], reverse=True)
+    return ranked
+
+
+def _persist_to_db(ranked_resumes: List[Dict]) -> None:
+    """Persist ranked resumes to SQLite without failing the pipeline."""
     try:
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
         from database.db_manager import save_resume
-        for r in ranked_resumes:
-            save_resume(r)
-    except Exception as e:
-        logger.warning(f"DB persist skipped: {e}")
+
+        for resume in ranked_resumes:
+            save_resume(resume)
+    except Exception as exc:
+        logger.warning("DB persist skipped: %s", exc)
 
 
-def _store_faiss(embeddings: np.ndarray, resume_ids: List[str]):
+def _store_faiss(embeddings: np.ndarray, resume_ids: List[str]) -> None:
+    """Store embeddings in FAISS without failing the pipeline."""
     try:
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
         from database.db_manager import faiss_store
+
         faiss_store.add_embeddings(embeddings.copy(), resume_ids)
-    except Exception as e:
-        logger.warning(f"FAISS store skipped: {e}")
+    except Exception as exc:
+        logger.warning("FAISS store skipped: %s", exc)

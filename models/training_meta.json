@@ -1,0 +1,19 @@
+{
+  "csv_path": "C:\\Users\\Abhinav Nigade\\OneDrive\\Attachments\\Desktop\\DET MINIPROJECT\\project\\data\\kaggle\\resumes.csv",
+  "columns": {
+    "path": "C:\\Users\\Abhinav Nigade\\OneDrive\\Attachments\\Desktop\\DET MINIPROJECT\\project\\data\\kaggle\\resumes.csv",
+    "text_column": "resume_text",
+    "role_column": "category",
+    "skill_column": null,
+    "n_rows_after_clean": 2000
+  },
+  "n_samples": 2000,
+  "n_unique_roles": 16,
+  "kmeans_clusters": 4,
+  "cluster_sizes": {
+    "0": 357,
+    "1": 686,
+    "2": 323,
+    "3": 634
+  }
+}

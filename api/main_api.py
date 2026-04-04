@@ -68,6 +68,60 @@ def health():
     return {"status": "ok", "version": "1.0.0"}
 
 
+@app.get("/training/status")
+def training_status_endpoint():
+    """Report whether dataset-trained models and mined skills are present."""
+    from utils.training_pipeline import training_status
+
+    return training_status()
+
+
+@app.post("/train")
+async def train_on_dataset(
+    csv_file: Optional[UploadFile] = File(None),
+    n_clusters: int = Form(8),
+    top_skills: int = Form(250),
+):
+    """
+    Train TF-IDF + Logistic Regression role classifier, mine skill terms,
+    and fit K-Means on the dataset CSV (default: ``data/kaggle/resumes.csv``).
+    """
+    import tempfile
+
+    from utils.training_pipeline import run_training_pipeline
+
+    csv_path = None
+    if csv_file is not None and csv_file.filename:
+        suffix = os.path.splitext(csv_file.filename)[1] or ".csv"
+        content = await csv_file.read()
+        fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix="train_")
+        os.close(fd)
+        try:
+            with open(tmp_path, "wb") as tmp:
+                tmp.write(content)
+            csv_path = tmp_path
+            result = run_training_pipeline(
+                csv_path=csv_path,
+                n_clusters=n_clusters,
+                top_skills=top_skills,
+            )
+        finally:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+    else:
+        result = run_training_pipeline(
+            csv_path=None,
+            n_clusters=n_clusters,
+            top_skills=top_skills,
+        )
+
+    if not result.get("ok"):
+        raise HTTPException(status_code=422, detail=result.get("message", "Training failed."))
+    return _clean_json_value(result)
+
+
 @app.get("/dashboard/meta")
 def dashboard_meta():
     try:

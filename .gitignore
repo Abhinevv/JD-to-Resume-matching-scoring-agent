@@ -7,3 +7,10 @@ __pycache__/
 .mypy_cache/
 .DS_Store
 Thumbs.db
+.streamlit/
+data/raw_resumes/*
+!data/raw_resumes/.gitkeep
+database/*.db
+database/*.json
+database/*.pkl
+models/*.pkl

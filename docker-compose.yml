@@ -1,29 +1,9 @@
 version: "3.9"
 
 services:
-  # ── Streamlit UI ─────────────────────────────────────────────────────────────
-  streamlit:
-    build: .
-    container_name: resume_matcher_ui
-    ports:
-      - "8501:8501"
-    volumes:
-      - ./data/raw_resumes:/app/data/raw_resumes   # persist uploaded files
-      - ./database:/app/database                   # persist SQLite + FAISS
-      - ./models:/app/models                       # persist trained models
-    environment:
-      - PYTHONUNBUFFERED=1
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # ── FastAPI backend ───────────────────────────────────────────────────────────
   api:
     build: .
-    container_name: resume_matcher_api
+    container_name: resume_matcher_web
     command: uvicorn api.main_api:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
@@ -34,8 +14,3 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
-
-volumes:
-  resume_data:
-  resume_db:
-  resume_models:

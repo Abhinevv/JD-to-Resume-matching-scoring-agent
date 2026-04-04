@@ -4,6 +4,7 @@ const byId = (id) => document.getElementById(id);
 const elements = {
   statusBox: byId("statusBox"),
   healthBadge: byId("healthBadge"),
+  trainingBadge: byId("trainingBadge"),
   resultsSection: byId("resultsSection"),
   summaryGrid: byId("summaryGrid"),
   rankingsList: byId("rankingsList"),
@@ -348,12 +349,23 @@ async function runSample() {
   form.append("sem_weight", settings.sem_weight);
   form.append("skill_weight", settings.skill_weight);
   form.append("exp_weight", settings.exp_weight);
-  setStatus("Running sample pipeline...", "loading");
-  state.results = await fetchJson("/sample", { method: "POST", body: form });
-  state.selectedCandidateIndex = 0;
-  renderAllResults();
-  await refreshDatabaseView();
-  setStatus("Sample pipeline completed.", "success");
+  setStatus("Running sample pipeline... (this may take 30-60 seconds)", "loading");
+  try {
+    const response = await fetch("/sample", { method: "POST", body: form });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || JSON.stringify(data));
+    }
+    state.results = data;
+    state.selectedCandidateIndex = 0;
+    renderAllResults();
+    await refreshDatabaseView();
+    setStatus("Sample pipeline completed.", "success");
+    document.getElementById("resultsSection").scrollIntoView({ behavior: "smooth" });
+  } catch (error) {
+    setStatus(`Sample run failed: ${error.message}`, "error");
+    console.error("Sample error:", error);
+  }
 }
 
 async function runUpload() {
@@ -374,12 +386,23 @@ async function runUpload() {
   form.append("exp_weight", settings.exp_weight);
   Array.from(files).forEach((file) => form.append("resumes", file));
 
-  setStatus("Uploading files and running pipeline...", "loading");
-  state.results = await fetchJson("/match", { method: "POST", body: form });
-  state.selectedCandidateIndex = 0;
-  renderAllResults();
-  await refreshDatabaseView();
-  setStatus("Upload pipeline completed.", "success");
+  setStatus("Uploading files and running pipeline... (this may take 30-60 seconds)", "loading");
+  try {
+    const response = await fetch("/match", { method: "POST", body: form });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || JSON.stringify(data));
+    }
+    state.results = data;
+    state.selectedCandidateIndex = 0;
+    renderAllResults();
+    await refreshDatabaseView();
+    setStatus("Upload pipeline completed.", "success");
+    document.getElementById("resultsSection").scrollIntoView({ behavior: "smooth" });
+  } catch (error) {
+    setStatus(`Upload run failed: ${error.message}`, "error");
+    console.error("Upload error:", error);
+  }
 }
 
 function downloadCsv() {
@@ -436,9 +459,39 @@ async function checkHealth() {
   }
 }
 
+async function checkTrainingStatus() {
+  try {
+    const data = await fetchJson("/training/status");
+    if (data.classifier_ready) {
+      elements.trainingBadge.textContent = "Loaded";
+    } else if (data.default_csv_exists) {
+      elements.trainingBadge.textContent = "Not trained (CSV ready)";
+    } else {
+      elements.trainingBadge.textContent = "No CSV / not trained";
+    }
+  } catch (_error) {
+    elements.trainingBadge.textContent = "—";
+  }
+}
+
+async function runTrainDataset() {
+  setStatus("Training on dataset (this may take a minute)…", "idle");
+  const formData = new FormData();
+  formData.append("n_clusters", byId("nClusters").value || "4");
+  formData.append("top_skills", "250");
+  const response = await fetch("/train", { method: "POST", body: formData });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = payload.detail || payload.message || response.statusText;
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+  setStatus(payload.message || "Training finished.", "idle");
+  await checkTrainingStatus();
+}
+
 function bindEvents() {
-  byId("runSampleButton").addEventListener("click", () => runSample().catch((error) => setStatus(`Sample run failed: ${error.message}`, "error")));
-  byId("runUploadButton").addEventListener("click", () => runUpload().catch((error) => setStatus(`Upload run failed: ${error.message}`, "error")));
+  byId("runSampleButton").addEventListener("click", () => runSample());
+  byId("runUploadButton").addEventListener("click", () => runUpload());
   byId("candidateSelect").addEventListener("change", (event) => {
     state.selectedCandidateIndex = Number(event.target.value);
     renderRankings(state.results.ranked_candidates || []);
@@ -446,6 +499,7 @@ function bindEvents() {
   });
   byId("refreshDatabaseButton").addEventListener("click", () => refreshDatabaseView().catch((error) => setStatus(`Database refresh failed: ${error.message}`, "error")));
   byId("downloadCsvButton").addEventListener("click", downloadCsv);
+  byId("trainModelButton").addEventListener("click", () => runTrainDataset().catch((error) => setStatus(`Training failed: ${error.message}`, "error")));
 }
 
 function init() {
@@ -454,6 +508,7 @@ function init() {
   setupFileList();
   bindEvents();
   checkHealth();
+  checkTrainingStatus();
   refreshDatabaseView().catch((error) => setStatus(`Database refresh failed: ${error.message}`, "error"));
 }
 

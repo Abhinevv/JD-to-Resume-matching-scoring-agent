@@ -2,7 +2,7 @@
 utils/visualizer.py
 --------------------
 All chart-generation functions.
-Each function returns a matplotlib Figure object (ready for st.pyplot).
+Each function returns a matplotlib Figure object for downstream rendering.
 """
 
 import logging

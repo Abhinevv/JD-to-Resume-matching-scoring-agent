@@ -5,10 +5,12 @@ Handles all text cleaning, normalization, tokenization,
 stopword removal, and lemmatization tasks.
 """
 
+import json
+import os
 import re
 import string
 import unicodedata
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 # We use NLTK for tokenization and stopwords; spaCy is optional for lemmatization
 import nltk
@@ -89,6 +91,39 @@ SKILL_KEYWORDS = [
     # Other
     "mlops", "faiss", "vector database", "agile", "scrum",
 ]
+
+_MINED_EXTRA: Optional[List[str]] = None
+
+
+def reload_mined_skills_vocab() -> None:
+    """Clear cache so ``mined_skills.json`` is re-read after model training."""
+    global _MINED_EXTRA
+    _MINED_EXTRA = None
+
+
+def _load_mined_skill_terms() -> List[str]:
+    """Terms mined from the training CSV (Kaggle / real dataset), if present."""
+    global _MINED_EXTRA
+    if _MINED_EXTRA is not None:
+        return _MINED_EXTRA
+    _MINED_EXTRA = []
+    try:
+        from utils.ml_engine import MINED_SKILLS_PATH
+
+        if os.path.isfile(MINED_SKILLS_PATH):
+            with open(MINED_SKILLS_PATH, encoding="utf-8") as f:
+                data = json.load(f)
+            raw = data.get("skills") or []
+            _MINED_EXTRA = [str(s).strip().lower() for s in raw if str(s).strip()]
+    except Exception:
+        _MINED_EXTRA = []
+    return _MINED_EXTRA
+
+
+def _skill_match_vocabulary() -> List[str]:
+    """Static taxonomy plus dataset-mined terms (order preserved, deduped)."""
+    extra = _load_mined_skill_terms()
+    return list(dict.fromkeys(list(SKILL_KEYWORDS) + extra))
 
 
 # ---------------------------------------------------------------------------
@@ -185,13 +220,12 @@ def full_preprocess(text: str) -> str:
 
 def extract_skills(text: str) -> List[str]:
     """
-    Scan raw text for known skills using the SKILL_KEYWORDS vocabulary.
-    Returns a deduplicated list of matched skills (original casing preserved
-    from the taxonomy).
+    Scan raw text for known skills using the static taxonomy plus any terms
+    mined from the training dataset (see ``mined_skills.json``).
     """
     text_lower = text.lower()
     found = []
-    for skill in SKILL_KEYWORDS:
+    for skill in _skill_match_vocabulary():
         # Use word-boundary matching so "r" doesn't match "architecture"
         pattern = r"\b" + re.escape(skill) + r"\b"
         if re.search(pattern, text_lower):

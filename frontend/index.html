@@ -134,6 +134,14 @@
               <span>Health</span>
               <strong id="healthBadge">Checking…</strong>
             </div>
+            <div>
+              <span>Dataset model</span>
+              <strong id="trainingBadge">…</strong>
+            </div>
+          </div>
+          <div class="stack train-row">
+            <button id="trainModelButton" class="button button-primary" type="button">Train Model on Dataset</button>
+            <p class="muted small">Uses <code>data/kaggle/resumes.csv</code> (replace with your Kaggle export). Optional: POST <code>/train</code> with a CSV upload.</p>
           </div>
           <button id="refreshDatabaseButton" class="button button-secondary">Refresh Database View</button>
         </aside>

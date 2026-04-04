@@ -359,6 +359,9 @@ th { color: var(--muted); font-weight: 500; }
 .codeish { font-family: "IBM Plex Mono", monospace; }
 .hidden { display: none; }
 
+.small { font-size: 0.82rem; line-height: 1.4; margin: 0; }
+.train-row { margin-top: 12px; }
+
 @media (max-width: 1080px) {
   .hero,
   .input-grid,

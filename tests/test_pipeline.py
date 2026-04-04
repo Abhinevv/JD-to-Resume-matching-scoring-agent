@@ -11,6 +11,7 @@ import sys
 import os
 import json
 import unittest
+from unittest.mock import patch
 import numpy as np
 
 # Ensure project root is importable
@@ -296,6 +297,11 @@ class TestRoleClassifier(unittest.TestCase):
 
     def setUp(self):
         from utils.ml_engine import RoleClassifier
+
+        # Do not load persisted models from models/ — tests need a cold classifier.
+        patcher = patch.object(RoleClassifier, "_try_load", lambda self: None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.clf = RoleClassifier()
 
     def test_predict_before_training(self):
@@ -334,6 +340,44 @@ class TestRoleClassifier(unittest.TestCase):
         self.assertGreater(len(proba), 0)
         total = sum(proba.values())
         self.assertAlmostEqual(total, 1.0, places=3)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4b. Training pipeline (Kaggle CSV)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestTrainingPipeline(unittest.TestCase):
+
+    def test_training_status_shape(self):
+        from utils.training_pipeline import training_status
+
+        s = training_status()
+        self.assertIn("classifier_ready", s)
+        self.assertIn("default_csv_exists", s)
+
+    def test_load_training_csv_minimal(self):
+        import tempfile
+        import pandas as pd
+        from utils.training_pipeline import load_training_dataframe
+
+        df = pd.DataFrame(
+            {
+                "resume_text": [
+                    "senior python developer with aws kubernetes docker experience building ml systems",
+                    "react typescript frontend engineer with graphql and node",
+                ],
+                "role": ["Backend Engineer", "Frontend Engineer"],
+            }
+        )
+        fd, path = tempfile.mkstemp(suffix=".csv")
+        os.close(fd)
+        try:
+            df.to_csv(path, index=False)
+            out, info = load_training_dataframe(path)
+            self.assertEqual(len(out), 2)
+            self.assertIn("n_rows_after_clean", info)
+        finally:
+            os.remove(path)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

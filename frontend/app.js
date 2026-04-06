@@ -96,11 +96,13 @@ function renderSummary(ranked) {
   const strong = ranked.filter((item) => item.match_score >= 0.7).length;
   const moderate = ranked.filter((item) => item.match_score >= 0.45 && item.match_score < 0.7).length;
   const topScore = ranked[0]?.match_score || 0;
+  const topAts = Math.max(...ranked.map((item) => Number(item.ats_score || 0)), 0);
   const cards = [
     ["Total Candidates", ranked.length],
     ["Strong Matches", strong],
     ["Moderate", moderate],
-    ["Top Score", formatPct(topScore)],
+    ["Top Match", formatPct(topScore)],
+    ["Top ATS", formatPct(topAts)],
   ];
   elements.summaryGrid.innerHTML = cards.map(([label, value]) => `
     <div class="summary-card">
@@ -119,6 +121,7 @@ function renderRankings(ranked) {
           <div>
             <strong>${item.name}</strong>
             <div class="muted">${item.predicted_role || "Unknown role"}</div>
+            <div class="muted">ATS ${formatPct(item.ats_score || 0)}</div>
           </div>
         </div>
         <span class="score-badge ${scoreClass(item.match_score)}">${formatPct(item.match_score)}</span>
@@ -170,18 +173,29 @@ function renderCandidateDetail() {
   if (!candidate) return;
   const detailRows = [
     ["Match Score", formatPct(candidate.match_score)],
+    ["ATS Score", formatPct(candidate.ats_score)],
     ["Semantic", formatPct(candidate.semantic_similarity)],
     ["Skill Match", formatPct(candidate.skill_overlap)],
     ["Experience Match", formatPct(candidate.experience_score)],
+    ["ATS Result", candidate.ats_recommendation || "Not available"],
     ["Predicted Role", candidate.predicted_role || "Unknown"],
     ["Experience", `${(candidate.experience_found || 0).toFixed(1)} / ${(candidate.experience_required || 0).toFixed(1)} years`],
+    ["Education", `${candidate.education || "Not Specified"} / ${candidate.education_required || "Not Specified"}`],
   ];
+  const atsBreakdown = candidate.ats_breakdown || {};
 
   elements.candidateDetail.innerHTML = `
     <h3>${candidate.name}</h3>
     <p class="muted">${candidate.recommendation || ""}</p>
     <div class="detail-grid">
       ${detailRows.map(([label, value]) => `<div><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
+    </div>
+    <h4>ATS Breakdown</h4>
+    <div class="detail-grid">
+      <div><span class="muted">Required Skills</span><strong>${formatPct(atsBreakdown.required_skill_coverage || 0)}</strong></div>
+      <div><span class="muted">Experience</span><strong>${formatPct(atsBreakdown.experience_alignment || 0)}</strong></div>
+      <div><span class="muted">Education</span><strong>${formatPct(atsBreakdown.education_alignment || 0)}</strong></div>
+      <div><span class="muted">Keyword Coverage</span><strong>${formatPct(atsBreakdown.keyword_coverage || 0)}</strong></div>
     </div>
     <h4>Matched skills</h4>
     <div class="pill-row">${(candidate.matched_skills || []).map((skill) => `<span class="tag match">${skill}</span>`).join("") || `<span class="muted">None</span>`}</div>

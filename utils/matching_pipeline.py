@@ -17,6 +17,7 @@ from utils.data_mining import (
 )
 from utils.ml_engine import (
     cluster_resumes,
+    compute_ats_score,
     compute_cosine_similarity,
     compute_experience_score,
     compute_final_score,
@@ -184,12 +185,19 @@ def _rank_candidates(
             resume.experience_score,
             weights=score_weights,
         )
+        ats_score, ats_breakdown = compute_ats_score(
+            resume.to_dict(),
+            jd_record.to_dict(),
+            resume.semantic_similarity,
+        )
 
         explanation = generate_explanation(
             resume.to_dict(),
             jd_record.to_dict(),
             resume.semantic_similarity,
             resume.match_score,
+            ats_score,
+            ats_breakdown,
             int(cluster_id),
         )
         ranked_candidates.append({**resume.to_dict(), **explanation})

@@ -93,6 +93,14 @@ SKILL_KEYWORDS = [
 ]
 
 _MINED_EXTRA: Optional[List[str]] = None
+NON_SKILL_TERMS = {
+    "ability", "analysis", "candidate", "cloud", "communication", "company",
+    "education", "engineering", "experience", "job", "knowledge", "management",
+    "platform", "platforms", "plus", "preferred", "problem", "qualification",
+    "qualifications", "required", "responsibilities", "role", "science",
+    "skill", "skills", "solving", "team", "technology", "technologies",
+    "tool", "tools", "understanding", "work", "working", "year", "years",
+}
 
 
 def reload_mined_skills_vocab() -> None:
@@ -114,7 +122,11 @@ def _load_mined_skill_terms() -> List[str]:
             with open(MINED_SKILLS_PATH, encoding="utf-8") as f:
                 data = json.load(f)
             raw = data.get("skills") or []
-            _MINED_EXTRA = [str(s).strip().lower() for s in raw if str(s).strip()]
+            _MINED_EXTRA = [
+                term
+                for term in (str(s).strip().lower() for s in raw)
+                if _is_valid_skill_term(term)
+            ]
     except Exception:
         _MINED_EXTRA = []
     return _MINED_EXTRA
@@ -123,7 +135,20 @@ def _load_mined_skill_terms() -> List[str]:
 def _skill_match_vocabulary() -> List[str]:
     """Static taxonomy plus dataset-mined terms (order preserved, deduped)."""
     extra = _load_mined_skill_terms()
-    return list(dict.fromkeys(list(SKILL_KEYWORDS) + extra))
+    combined = list(dict.fromkeys(list(SKILL_KEYWORDS) + extra))
+    return [term for term in combined if _is_valid_skill_term(term)]
+
+
+def _is_valid_skill_term(term: str) -> bool:
+    """Reject generic resume/JD words that should not be treated as skills."""
+    if not term:
+        return False
+    cleaned = term.strip().lower()
+    if cleaned in NON_SKILL_TERMS:
+        return False
+    if cleaned.isdigit():
+        return False
+    return len(cleaned) >= 2 or cleaned in {"r", "c", "c#", "c++"}
 
 
 # ---------------------------------------------------------------------------

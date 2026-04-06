@@ -14,3 +14,6 @@ database/*.db
 database/*.json
 database/*.pkl
 models/*.pkl
+Dockerfile
+docker-compose.yml
+setup.sh

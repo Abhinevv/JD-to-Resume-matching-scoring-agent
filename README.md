@@ -1,99 +1,191 @@
-# JD-to-Resume-matching-scoring-agent
+# 🧠 JD-to-Resume Matching & Scoring System
 
-Resume-to-job-description matching system with:
+An end-to-end intelligent system that matches resumes with job descriptions using **Natural Language Processing (NLP), Machine Learning, and Data Mining techniques**.
 
-- FastAPI backend
-- HTML/CSS/JavaScript frontend
-- NLP preprocessing
-- matching, ranking, clustering, and Apriori mining
-- SQLite + FAISS persistence at runtime
-- **Dataset training pipeline** (TF-IDF + Logistic Regression, K-Means on real CSV, mined skill vocabulary)
+This project ranks candidates based on semantic similarity, skill alignment, and experience while providing insights like clustering, skill gaps, and ATS-style evaluation.
 
-## Model training (Kaggle / real CSV)
+---
 
-The system can be trained on **real-world tabular data** (for example exports from [Kaggle](https://www.kaggle.com) resume or job-posting datasets) so evaluation can honestly cover **data engineering, data mining, and machine learning on a dataset**.
+## 🚀 Features
 
-1. Place a CSV under `data/kaggle/resumes.csv` (or upload via the API). Expected columns (flexible names are auto-detected):
-   - Resume text: e.g. `resume_text`, `Resume`, `text`, `description`
-   - Role / label: e.g. `role`, `Category`, `Job Title`, `label`
-   - Optional skills: e.g. `skills`, `tech_stack` (comma- or pipe-separated)
-2. Train models:
-   - **Web UI:** open the app and use **Train Model on Dataset** (uses `data/kaggle/resumes.csv` and the current K-Means slider).
-   - **REST:** `POST /train` (optional multipart `csv_file` + form fields `n_clusters`, `top_skills`).
-   - **Streamlit (optional):** `streamlit run streamlit_train.py`
-3. Artifacts are written to `models/`: `role_classifier.pkl`, `tfidf_vectorizer.pkl`, `label_encoder.pkl`, `mined_skills.json`, `dataset_kmeans.pkl`, `training_meta.json`.
+* 📄 Resume parsing (PDF/Image/Text)
+* 🧠 NLP-based preprocessing (tokenization, cleaning, skill extraction)
+* 📊 Semantic similarity using TF-IDF / embeddings
+* 🤖 Role prediction using Logistic Regression
+* 📌 Candidate ranking with weighted scoring
+* 🔍 Skill gap analysis (matched, missing, extra skills)
+* 📈 Clustering using K-Means
+* 🧩 Apriori algorithm for skill pattern mining
+* ⚡ Fast similarity search using FAISS
+* 💾 Persistent storage using SQLite
+* 🌐 Interactive frontend dashboard
 
-What gets learned:
+---
 
-- **TF-IDF vectorization** and **Logistic Regression** for resume → role classification
-- **K-Means** on TF-IDF vectors of the training corpus (unsupervised structure)
-- **Skill frequency mining** from the dataset (extends rule-based skill extraction at runtime)
+## 🏗️ System Architecture
 
-After training, the matching pipeline **uses the trained classifier** when present; it does **not** overwrite it with a small labeled upload batch. If no model is on disk, behavior falls back to training only when uploads include a `role` field (previous behavior).
-
-### Viva talking point
-
-You can describe the project as combining semantic matching with **supervised learning (role classifier) and unsupervised learning (K-Means)** on real CSV data, plus **skill distribution mining**, so the system learns patterns from data instead of relying only on static rules.
-
-## Structure
-
-```text
-project/
-├── api/                  # FastAPI app and REST endpoints
-├── frontend/             # Static HTML/CSS/JS frontend
-├── utils/                # Pipeline, preprocessing, ML, charts
-│   └── training_pipeline.py   # Train on Kaggle-style CSV
-├── database/             # Runtime SQLite / FAISS files
-├── models/               # Runtime trained model artifacts
-├── data/
-│   ├── raw_resumes/      # Uploaded files at runtime
-│   ├── kaggle/           # Place resumes.csv (Kaggle export) here
-│   ├── sample/           # Built-in Python sample dataset
-│   └── sample_text/      # Exported sample .txt files
-├── streamlit_train.py    # Optional Streamlit trainer UI
-├── tests/
-├── main.py               # Main launcher
-├── requirements.txt
-├── Dockerfile
-└── docker-compose.yml
+```
+Frontend (HTML/CSS/JS)
+        ↓
+FastAPI Backend (API Layer)
+        ↓
+Service Layer (Workflow Controller)
+        ↓
+ML + NLP Pipeline (Core Engine)
+        ↓
+SQLite + FAISS (Storage & Vector Search)
 ```
 
-## Run
+---
+
+## 🔁 Workflow
+
+1. User uploads resumes and enters a Job Description
+2. Text is preprocessed (cleaning, tokenization, skill extraction)
+3. ML models compute:
+
+   * Semantic similarity
+   * Skill overlap
+   * Experience match
+4. Final score is calculated using weighted formula
+5. Candidates are ranked and stored in database
+6. Frontend displays:
+
+   * Rankings
+   * Skill gaps
+   * Clusters
+   * Analytics
+
+---
+
+## 📊 Scoring Formula
+
+```
+Final Score =
+  (Semantic Similarity × W1) +
+  (Skill Match × W2) +
+  (Experience Match × W3)
+```
+
+> Weights are adjustable from the UI.
+
+---
+
+## 🧠 Machine Learning Components
+
+### Supervised Learning
+
+* TF-IDF Vectorization
+* Logistic Regression (Role Prediction)
+
+### Unsupervised Learning
+
+* K-Means Clustering (Candidate grouping)
+
+### Data Mining
+
+* Apriori Algorithm (Frequent skill patterns & associations)
+
+---
+
+## 🗂️ Project Structure
+
+```
+project/
+├── api/                # FastAPI endpoints
+├── services/           # Workflow & business logic
+├── utils/              # NLP, ML, pipeline logic
+├── database/           # SQLite + FAISS storage
+├── models/             # Trained model artifacts
+├── data/               # Sample + training data
+├── frontend/           # UI (HTML/CSS/JS)
+├── main.py             # Entry point
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## ⚙️ Installation & Setup
 
 ```bash
+# Create virtual environment
 python -m venv .venv
-.venv\Scripts\activate
+
+# Activate environment
+.venv\Scripts\activate   # Windows
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Run application
 python main.py
 ```
 
-App URL:
+---
 
-```text
-http://127.0.0.1:8000
-```
+## 🌐 Access
 
-API docs:
+* App: http://127.0.0.1:8000
+* API Docs: http://127.0.0.1:8000/docs
 
-```text
-http://127.0.0.1:8000/docs
-```
+---
 
-## Main API Endpoints
+## 📡 API Endpoints
 
-- `GET /`
-- `GET /health`
-- `GET /training/status`
-- `POST /train`
-- `GET /dashboard/meta`
-- `POST /sample`
-- `POST /match`
-- `GET /resumes`
-- `GET /resume/{resume_id}`
+* `POST /match` → Upload resumes and match
+* `POST /sample` → Run sample dataset
+* `POST /train` → Train model on dataset
+* `GET /resumes` → View stored resumes
+* `GET /dashboard/meta` → Dashboard statistics
 
-## Notes
+---
 
-- The main UI is FastAPI + HTML/JS; optional **Streamlit** trainer (`streamlit_train.py`) is available for training-only demos.
-- A starter `data/kaggle/resumes.csv` is generated from the built-in sample resumes so training works before you add your own Kaggle file.
-- Runtime-generated files are ignored from git where possible.
-- On environments where `torch` DLLs fail, the matching pipeline falls back to TF-IDF embeddings.
+## 📈 Output Insights
+
+* Ranked candidates with scores
+* ATS-style evaluation
+* Skill gap analysis
+* Role prediction
+* Cluster profiles
+* Frequent skill patterns
+
+---
+
+## 💡 Real-World Applications
+
+* Recruitment automation
+* Resume screening systems (ATS)
+* HR analytics
+* Talent recommendation systems
+
+---
+
+## 🔮 Future Scope
+
+* Deep learning embeddings (BERT, Sentence Transformers)
+* Resume feedback generation
+* Interview recommendation system
+* Real-time job matching platform
+
+---
+
+## 🧑‍💻 Tech Stack
+
+* **Backend:** FastAPI
+* **Frontend:** HTML, CSS, JavaScript
+* **ML/NLP:** Scikit-learn, spaCy, NLTK
+* **Database:** SQLite
+* **Vector Search:** FAISS
+* **Data Mining:** mlxtend (Apriori)
+
+---
+
+## 🏁 Conclusion
+
+This project integrates multiple domains — **NLP, Machine Learning, Data Mining, and Full-Stack Development** — to build a scalable and intelligent resume matching system.
+
+It goes beyond keyword matching by incorporating semantic understanding, predictive modeling, and data-driven insights.
+
+---
+

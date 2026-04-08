@@ -15,7 +15,10 @@ class ResumeRecord:
     filename: str
     raw_text: str
     processed_text: str = ""
+    projects_text: str = ""
+    project_summary: str = ""
     skills: List[str] = field(default_factory=list)
+    project_skills: List[str] = field(default_factory=list)
     experience_years: float = 0.0
     education: str = "Not Specified"
     predicted_role: str = "Unknown"
@@ -23,6 +26,7 @@ class ResumeRecord:
     semantic_similarity: float = 0.0
     skill_overlap: float = 0.0
     experience_score: float = 0.0
+    project_score: float = 0.0
     match_score: float = 0.0
 
     @classmethod

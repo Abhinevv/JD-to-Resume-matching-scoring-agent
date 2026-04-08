@@ -193,6 +193,20 @@ SECTION_HEADERS = (
     "skills", "technical skills", "tech stack", "core competencies",
     "expertise", "must-have skills", "required skills", "preferred skills",
 )
+PROJECT_SECTION_HEADERS = (
+    "projects", "project", "academic projects", "key projects",
+    "personal projects", "portfolio", "project experience",
+)
+SECTION_STOP_HEADERS = (
+    "experience", "work experience", "professional experience", "employment",
+    "education", "skills", "technical skills", "certifications", "summary",
+    "objective", "profile", "achievements", "awards", "publications",
+    "internships", "positions of responsibility",
+)
+PROJECT_ACTION_VERBS = (
+    "built", "developed", "designed", "implemented", "created", "deployed",
+    "optimized", "automated", "engineered", "integrated", "delivered",
+)
 
 
 def reload_mined_skills_vocab() -> None:
@@ -282,6 +296,70 @@ def _extract_skill_sections(text: str) -> str:
             look_ahead = lines[index + 1:index + 6]
             collected.extend(look_ahead)
     return "\n".join(collected)
+
+
+def _normalize_heading(line: str) -> str:
+    """Normalize a possible section header for matching."""
+    return re.sub(r"[^a-z\s]", "", line.lower()).strip()
+
+
+def extract_project_section(text: str) -> str:
+    """Extract the resume's projects section when present."""
+    lines = [line.rstrip() for line in text.splitlines()]
+    collected: List[str] = []
+    inside_projects = False
+
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        if not stripped:
+            if inside_projects and collected and collected[-1] != "":
+                collected.append("")
+            continue
+
+        heading = _normalize_heading(stripped)
+        if any(heading.startswith(header) for header in PROJECT_SECTION_HEADERS):
+            inside_projects = True
+            continue
+
+        if inside_projects and any(heading.startswith(header) for header in SECTION_STOP_HEADERS):
+            break
+
+        if inside_projects:
+            collected.append(stripped)
+
+    return "\n".join(line for line in collected).strip()
+
+
+def summarize_projects(project_text: str, max_chars: int = 220) -> str:
+    """Create a short readable summary of the detected projects text."""
+    if not project_text.strip():
+        return ""
+
+    lines = [line.strip(" -\t") for line in project_text.splitlines() if line.strip()]
+    if not lines:
+        return ""
+
+    summary = lines[0]
+    for line in lines[1:]:
+        if len(summary) >= max_chars:
+            break
+        summary = f"{summary}; {line}"
+
+    if len(summary) > max_chars:
+        return summary[: max_chars - 3].rstrip() + "..."
+    return summary
+
+
+def compute_project_signal(project_text: str) -> float:
+    """Estimate how implementation-heavy the project section is."""
+    if not project_text.strip():
+        return 0.0
+
+    text_lower = project_text.lower()
+    action_hits = sum(1 for verb in PROJECT_ACTION_VERBS if re.search(r"\b" + re.escape(verb) + r"\b", text_lower))
+    metric_hits = len(re.findall(r"\b\d+(?:\.\d+)?%|\b\d+\s*(?:users|ms|x|models|apis|pipelines|services)\b", text_lower))
+    score = min(action_hits / 4, 1.0) * 0.6 + min(metric_hits / 3, 1.0) * 0.4
+    return round(score, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -463,6 +541,8 @@ def preprocess_resume(raw_text: str) -> Dict:
     Returns a dict with all structured fields.
     """
     skills = extract_skills(raw_text)
+    projects_text = extract_project_section(raw_text)
+    project_skills = extract_skills(projects_text) if projects_text else []
     experience = extract_experience_years(raw_text)
     education = extract_education(raw_text)
     processed_text = full_preprocess(raw_text)
@@ -470,6 +550,10 @@ def preprocess_resume(raw_text: str) -> Dict:
     return {
         "raw_text": raw_text,
         "processed_text": processed_text,
+        "projects_text": projects_text,
+        "project_summary": summarize_projects(projects_text),
+        "project_skills": project_skills,
+        "project_signal": compute_project_signal(projects_text),
         "skills": skills,
         "experience_years": experience,
         "education": education,

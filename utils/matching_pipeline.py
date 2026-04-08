@@ -21,6 +21,7 @@ from utils.ml_engine import (
     compute_cosine_similarity,
     compute_experience_score,
     compute_final_score,
+    compute_project_relevance_score,
     compute_skill_overlap,
     encode_texts,
     generate_explanation,
@@ -108,9 +109,13 @@ def _process_resumes(raw_resumes: List[Dict]) -> List[ResumeRecord]:
         )
         extracted = preprocess_resume(resume.raw_text)
         resume.processed_text = extracted.get("processed_text", "")
+        resume.projects_text = extracted.get("projects_text", "")
+        resume.project_summary = extracted.get("project_summary", "")
         resume.skills = extracted.get("skills", [])
+        resume.project_skills = extracted.get("project_skills", [])
         resume.experience_years = extracted.get("experience_years", 0.0)
         resume.education = extracted.get("education", "Not Specified")
+        resume.project_score = extracted.get("project_signal", 0.0)
         processed_resumes.append(resume)
     return processed_resumes
 
@@ -190,6 +195,11 @@ def _rank_candidates(
             jd_record.to_dict(),
             resume.semantic_similarity,
         )
+        project_score, project_breakdown = compute_project_relevance_score(
+            resume.to_dict(),
+            jd_record.to_dict(),
+        )
+        resume.project_score = project_score
 
         explanation = generate_explanation(
             resume.to_dict(),
@@ -198,6 +208,8 @@ def _rank_candidates(
             resume.match_score,
             ats_score,
             ats_breakdown,
+            project_score,
+            project_breakdown,
             int(cluster_id),
         )
         ranked_candidates.append({**resume.to_dict(), **explanation})

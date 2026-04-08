@@ -307,10 +307,23 @@ textarea { resize: vertical; min-height: 180px; }
   margin: 16px 0;
 }
 
+.detail-grid-compact {
+  margin: 12px 0 0;
+}
+
 .detail-grid div {
   padding: 12px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
+}
+
+.explain-section {
+  margin-top: 18px;
+  padding-top: 6px;
+}
+
+.explain-section h4 {
+  margin: 0 0 8px;
 }
 
 .bar-row { display: grid; gap: 6px; }

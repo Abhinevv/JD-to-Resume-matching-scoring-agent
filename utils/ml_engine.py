@@ -280,6 +280,46 @@ def compute_ats_score(
     return float(np.clip(ats_score, 0.0, 1.0)), breakdown
 
 
+def compute_project_relevance_score(
+    resume_data: Dict,
+    jd_data: Dict,
+) -> Tuple[float, Dict[str, float]]:
+    """
+    Compute a project relevance score using explicit project evidence.
+
+    Formula:
+      - project skill overlap: 50%
+      - project keyword coverage: 30%
+      - project implementation signal: 20%
+    """
+    project_text = resume_data.get("projects_text", "")
+    project_skills = resume_data.get("project_skills", [])
+    required_skills = jd_data.get("required_skills", [])
+
+    if not project_text.strip():
+        return 0.0, {
+            "project_skill_overlap": 0.0,
+            "project_keyword_coverage": 0.0,
+            "project_signal": 0.0,
+        }
+
+    project_skill_overlap = compute_skill_overlap(project_skills, required_skills) if required_skills else 0.5
+    project_keyword_coverage = compute_keyword_coverage(project_text, required_skills)
+    project_signal = float(np.clip(resume_data.get("project_signal", 0.0), 0.0, 1.0))
+
+    project_score = (
+        0.50 * project_skill_overlap +
+        0.30 * project_keyword_coverage +
+        0.20 * project_signal
+    )
+    breakdown = {
+        "project_skill_overlap": round(project_skill_overlap, 4),
+        "project_keyword_coverage": round(project_keyword_coverage, 4),
+        "project_signal": round(project_signal, 4),
+    }
+    return float(np.clip(project_score, 0.0, 1.0)), breakdown
+
+
 def generate_explanation(
     resume_data: Dict,
     jd_data: Dict,
@@ -287,6 +327,8 @@ def generate_explanation(
     final_score: float,
     ats_score: float = 0.0,
     ats_breakdown: Optional[Dict[str, float]] = None,
+    project_score: float = 0.0,
+    project_breakdown: Optional[Dict[str, float]] = None,
     cluster_label: int = -1,
 ) -> Dict:
     """Produce human-readable explanation details for a candidate."""
@@ -331,5 +373,9 @@ def generate_explanation(
         "cluster_label": cluster_label,
         "ats_breakdown": ats_breakdown or {},
         "ats_recommendation": ats_recommendation,
+        "project_score": round(project_score, 4),
+        "project_breakdown": project_breakdown or {},
+        "project_summary": resume_data.get("project_summary", ""),
+        "project_skills": resume_data.get("project_skills", []),
         "recommendation": recommendation,
     }

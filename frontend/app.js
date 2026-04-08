@@ -171,32 +171,64 @@ function renderBarList(target, rows) {
 function renderCandidateDetail() {
   const candidate = state.results.ranked_candidates[state.selectedCandidateIndex];
   if (!candidate) return;
-  const detailRows = [
-    ["Match Score", formatPct(candidate.match_score)],
+  const atsBreakdown = candidate.ats_breakdown || {};
+  const projectScore = candidate.project_score ?? candidate.projects_score ?? null;
+  const projectBreakdown = candidate.project_breakdown || {};
+  const projectSummary = candidate.project_summary || candidate.project_snippet || candidate.top_project || "No project section detected in this resume.";
+  const overallRows = [
+    ["Overall Match", formatPct(candidate.match_score)],
     ["ATS Score", formatPct(candidate.ats_score)],
-    ["Semantic", formatPct(candidate.semantic_similarity)],
+    ["Semantic Score", formatPct(candidate.semantic_similarity)],
+    ["Project Score", projectScore == null ? "Not available" : formatPct(projectScore)],
+  ];
+  const atsRows = [
+    ["ATS Result", candidate.ats_recommendation || "Not available"],
+    ["Required Skills", formatPct(atsBreakdown.required_skill_coverage || 0)],
+    ["Experience", formatPct(atsBreakdown.experience_alignment || 0)],
+    ["Education", formatPct(atsBreakdown.education_alignment || 0)],
+    ["Keyword Coverage", formatPct(atsBreakdown.keyword_coverage || 0)],
+  ];
+  const semanticRows = [
+    ["Semantic Score", formatPct(candidate.semantic_similarity)],
+    ["Predicted Role", candidate.predicted_role || "Unknown"],
     ["Skill Match", formatPct(candidate.skill_overlap)],
     ["Experience Match", formatPct(candidate.experience_score)],
-    ["ATS Result", candidate.ats_recommendation || "Not available"],
-    ["Predicted Role", candidate.predicted_role || "Unknown"],
     ["Experience", `${(candidate.experience_found || 0).toFixed(1)} / ${(candidate.experience_required || 0).toFixed(1)} years`],
     ["Education", `${candidate.education || "Not Specified"} / ${candidate.education_required || "Not Specified"}`],
   ];
-  const atsBreakdown = candidate.ats_breakdown || {};
 
   elements.candidateDetail.innerHTML = `
     <h3>${candidate.name}</h3>
     <p class="muted">${candidate.recommendation || ""}</p>
-    <div class="detail-grid">
-      ${detailRows.map(([label, value]) => `<div><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
-    </div>
-    <h4>ATS Breakdown</h4>
-    <div class="detail-grid">
-      <div><span class="muted">Required Skills</span><strong>${formatPct(atsBreakdown.required_skill_coverage || 0)}</strong></div>
-      <div><span class="muted">Experience</span><strong>${formatPct(atsBreakdown.experience_alignment || 0)}</strong></div>
-      <div><span class="muted">Education</span><strong>${formatPct(atsBreakdown.education_alignment || 0)}</strong></div>
-      <div><span class="muted">Keyword Coverage</span><strong>${formatPct(atsBreakdown.keyword_coverage || 0)}</strong></div>
-    </div>
+    <section class="explain-section">
+      <h4>Overall Score</h4>
+      <div class="detail-grid detail-grid-compact">
+        ${overallRows.map(([label, value]) => `<div><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
+      </div>
+    </section>
+    <section class="explain-section">
+      <h4>ATS Score</h4>
+      <div class="detail-grid detail-grid-compact">
+        ${atsRows.map(([label, value]) => `<div><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
+      </div>
+    </section>
+    <section class="explain-section">
+      <h4>Semantic Score</h4>
+      <div class="detail-grid detail-grid-compact">
+        ${semanticRows.map(([label, value]) => `<div><span class="muted">${label}</span><strong>${value}</strong></div>`).join("")}
+      </div>
+    </section>
+    <section class="explain-section">
+      <h4>Project Score</h4>
+      <div class="detail-grid detail-grid-compact">
+        <div><span class="muted">Project Score</span><strong>${projectScore == null ? "Not available" : formatPct(projectScore)}</strong></div>
+        <div><span class="muted">Project Skills</span><strong>${(candidate.project_skills || []).length}</strong></div>
+        <div><span class="muted">Skill Overlap</span><strong>${formatPct(projectBreakdown.project_skill_overlap || 0)}</strong></div>
+        <div><span class="muted">Keyword Coverage</span><strong>${formatPct(projectBreakdown.project_keyword_coverage || 0)}</strong></div>
+        <div><span class="muted">Project Signal</span><strong>${formatPct(projectBreakdown.project_signal || 0)}</strong></div>
+      </div>
+      <p class="muted">${projectSummary}</p>
+    </section>
     <h4>Matched skills</h4>
     <div class="pill-row">${(candidate.matched_skills || []).map((skill) => `<span class="tag match">${skill}</span>`).join("") || `<span class="muted">None</span>`}</div>
     <h4>Missing skills</h4>

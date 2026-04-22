@@ -4,6 +4,8 @@ An end-to-end intelligent system that matches resumes with job descriptions usin
 
 This project ranks candidates based on semantic similarity, skill alignment, and experience while providing insights like clustering, skill gaps, and ATS-style evaluation.
 
+New recruiter workflow: the app now asks for the recruiter's domain before matching, adds candidate-specific recruiter chat, generates domain-aware interview scenario questions, and gives resume improvement feedback when a profile is not up to the mark.
+
 ---
 
 ## 🚀 Features

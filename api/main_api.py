@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,6 +27,7 @@ from services.matching_service import (
     run_match_workflow,
     run_training_workflow,
 )
+from services.recruiter_assistant import analyze_voice_note, answer_candidate_question, build_domain_context
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,6 +62,19 @@ def frontend() -> FileResponse:
 def health() -> dict:
     """Basic health endpoint for uptime checks."""
     return {"status": "ok", "version": "1.0.0"}
+
+
+@app.get("/recruiter/domains")
+def recruiter_domains() -> dict:
+    """Return domain defaults used by the recruiter assistant."""
+    domains = [
+        build_domain_context("data science"),
+        build_domain_context("software engineering"),
+        build_domain_context("data engineering"),
+        build_domain_context("cloud devops"),
+        build_domain_context("business analyst"),
+    ]
+    return {"domains": domains}
 
 
 @app.get("/training/status")
@@ -106,6 +120,7 @@ def dashboard_meta():
 
 @app.post("/match")
 async def match_resumes(
+    recruiter_domain: str = Form("", description="Recruiter's business/domain context"),
     jd_text: str = Form(..., description="Job description text"),
     resumes: List[UploadFile] = File(..., description="Resume files (PDF/image/txt)"),
     n_clusters: int = Form(4),
@@ -124,6 +139,7 @@ async def match_resumes(
     result = run_match_workflow(
         raw_resumes=raw_resumes,
         jd_text=jd_text,
+        recruiter_domain=recruiter_domain,
         n_clusters=n_clusters,
         min_support=min_support,
         score_weights=build_score_weights(sem_weight, skill_weight, exp_weight),
@@ -135,6 +151,7 @@ async def match_resumes(
 
 @app.post("/sample")
 async def run_sample(
+    recruiter_domain: str = Form("data science", description="Recruiter's business/domain context"),
     role: str = Form("data_scientist", description="'data_scientist' or 'data_engineer'"),
     n_clusters: int = Form(3),
     min_support: float = Form(0.25),
@@ -146,6 +163,7 @@ async def run_sample(
     result = run_match_workflow(
         raw_resumes=build_sample_resumes(),
         jd_text=get_sample_jd(role),
+        recruiter_domain=recruiter_domain,
         n_clusters=n_clusters,
         min_support=min_support,
         score_weights=build_score_weights(sem_weight, skill_weight, exp_weight),
@@ -153,6 +171,41 @@ async def run_sample(
     if "error" in result:
         raise HTTPException(status_code=422, detail=result["error"])
     return result
+
+
+@app.post("/assistant/chat")
+def candidate_chat(payload: Dict[str, Any] = Body(...)):
+    """Answer recruiter questions about one selected candidate."""
+    candidate = payload.get("candidate") or {}
+    question = payload.get("question") or ""
+    if not candidate:
+        raise HTTPException(status_code=400, detail="Candidate payload is required.")
+    return answer_candidate_question(
+        candidate=candidate,
+        question=question,
+        domain=payload.get("domain", ""),
+        jd_info=payload.get("jd_info") or {},
+    )
+
+
+@app.post("/assistant/voice-confidence")
+async def voice_confidence(
+    audio: UploadFile = File(..., description="Candidate introduction voice note"),
+    candidate_name: str = Form("", description="Selected candidate name"),
+    duration_seconds: float = Form(0.0, description="Browser-recorded duration in seconds"),
+    transcript: str = Form("", description="Optional typed transcript or notes"),
+):
+    """Estimate confidence from a candidate introduction voice note."""
+    content = await audio.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Voice note file is empty.")
+    return analyze_voice_note(
+        audio_bytes=content,
+        filename=audio.filename or "",
+        duration_seconds=duration_seconds,
+        transcript=transcript,
+        candidate_name=candidate_name,
+    )
 
 
 @app.get("/resumes")

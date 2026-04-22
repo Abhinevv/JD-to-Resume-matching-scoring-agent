@@ -1,4 +1,4 @@
-const state = { results: null, selectedCandidateIndex: 0, dbRows: [] };
+const state = { results: null, selectedCandidateIndex: 0, dbRows: [], chatHistory: [] };
 const byId = (id) => document.getElementById(id);
 
 const elements = {
@@ -9,7 +9,15 @@ const elements = {
   summaryGrid: byId("summaryGrid"),
   rankingsList: byId("rankingsList"),
   candidateSelect: byId("candidateSelect"),
+  assistantCandidateSelect: byId("assistantCandidateSelect"),
   candidateDetail: byId("candidateDetail"),
+  chatStarters: byId("chatStarters"),
+  chatLog: byId("chatLog"),
+  chatQuestion: byId("chatQuestion"),
+  interviewKit: byId("interviewKit"),
+  voiceNoteFile: byId("voiceNoteFile"),
+  voiceTranscript: byId("voiceTranscript"),
+  voiceResult: byId("voiceResult"),
   scoreChart: byId("scoreChart"),
   skillChart: byId("skillChart"),
   roleChart: byId("roleChart"),
@@ -22,6 +30,15 @@ const elements = {
   resumeFileList: byId("resumeFileList"),
   weightWarning: byId("weightWarning"),
 };
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 function setStatus(message, kind = "idle") {
   elements.statusBox.textContent = message;
@@ -138,12 +155,17 @@ function renderRankings(ranked) {
       syncCandidateSelector();
       renderRankings(ranked);
       renderCandidateDetail();
+      state.chatHistory = [];
+      renderAssistant();
     });
   });
 }
 
 function syncCandidateSelector() {
   elements.candidateSelect.innerHTML = state.results.ranked_candidates.map((item, index) => `
+    <option value="${index}" ${index === state.selectedCandidateIndex ? "selected" : ""}>${item.name}</option>
+  `).join("");
+  elements.assistantCandidateSelect.innerHTML = state.results.ranked_candidates.map((item, index) => `
     <option value="${index}" ${index === state.selectedCandidateIndex ? "selected" : ""}>${item.name}</option>
   `).join("");
 }
@@ -236,6 +258,156 @@ function renderCandidateDetail() {
     <h4>Extra skills</h4>
     <div class="pill-row">${(candidate.extra_skills || []).map((skill) => `<span class="tag extra">${skill}</span>`).join("") || `<span class="muted">None</span>`}</div>
   `;
+}
+
+function renderAssistant() {
+  const candidate = state.results?.ranked_candidates?.[state.selectedCandidateIndex];
+  if (!candidate) return;
+
+  const assistant = candidate.recruiter_assistant || {};
+  const recommendedSkills = assistant.recommended_skills || [];
+  const domainGaps = assistant.domain_skill_gaps || [];
+  const feedback = assistant.resume_feedback || [];
+  const questions = assistant.interview_questions || [];
+  const scenarios = assistant.scenario_questions || [];
+  const starters = assistant.chat_starters || [];
+
+  elements.chatStarters.innerHTML = starters.map((starter) => `
+    <button class="quick-question" type="button" data-question="${escapeHtml(starter)}">${escapeHtml(starter)}</button>
+  `).join("");
+
+  elements.chatStarters.querySelectorAll("[data-question]").forEach((button) => {
+    button.addEventListener("click", () => {
+      elements.chatQuestion.value = button.dataset.question;
+      askCandidateQuestion();
+    });
+  });
+
+  elements.interviewKit.innerHTML = `
+    <section class="assistant-section">
+      <h4>${escapeHtml(assistant.domain || "Recruiter domain")}</h4>
+      <p class="muted">Expected skill signals</p>
+      <div class="pill-row">${recommendedSkills.slice(0, 14).map((skill) => `<span class="tag extra">${escapeHtml(skill)}</span>`).join("") || `<span class="muted">No domain skills available.</span>`}</div>
+    </section>
+    <section class="assistant-section">
+      <h4>Skill gaps to verify</h4>
+      <div class="pill-row">${domainGaps.map((skill) => `<span class="tag missing">${escapeHtml(skill)}</span>`).join("") || `<span class="muted">No major extracted domain gaps.</span>`}</div>
+    </section>
+    <section class="assistant-section">
+      <h4>Resume feedback</h4>
+      <ul class="clean-list">${feedback.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    </section>
+    <section class="assistant-section">
+      <h4>Candidate-specific questions</h4>
+      <ol class="clean-list">${questions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol>
+    </section>
+    <section class="assistant-section">
+      <h4>Industry scenario questions</h4>
+      <ol class="clean-list">${scenarios.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol>
+    </section>
+  `;
+
+  elements.voiceResult.textContent = "Upload an introduction voice note to estimate confidence.";
+  renderChatLog();
+}
+
+function renderChatLog() {
+  if (!state.chatHistory.length) {
+    elements.chatLog.innerHTML = `<p class="muted">Ask anything about the selected resume. Answers stay grounded in the candidate's parsed skills, score, projects, and gaps.</p>`;
+    return;
+  }
+  elements.chatLog.innerHTML = state.chatHistory.map((entry) => `
+    <div class="chat-message ${entry.role}">
+      <strong>${entry.role === "recruiter" ? "Recruiter" : "Assistant"}</strong>
+      <p>${escapeHtml(entry.text)}</p>
+    </div>
+  `).join("");
+  elements.chatLog.scrollTop = elements.chatLog.scrollHeight;
+}
+
+async function askCandidateQuestion() {
+  const question = elements.chatQuestion.value.trim();
+  const candidate = state.results?.ranked_candidates?.[state.selectedCandidateIndex];
+  if (!question || !candidate) {
+    setStatus("Select a candidate and type a question first.", "error");
+    return;
+  }
+
+  state.chatHistory.push({ role: "recruiter", text: question });
+  elements.chatQuestion.value = "";
+  renderChatLog();
+
+  try {
+    const data = await fetchJson("/assistant/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        candidate,
+        question,
+        domain: state.results?.recruiter_context?.domain || "",
+        jd_info: state.results?.jd_info || {},
+      }),
+    });
+    state.chatHistory.push({ role: "assistant", text: data.answer || "I could not generate an answer for that question." });
+    renderChatLog();
+  } catch (error) {
+    state.chatHistory.push({ role: "assistant", text: `Chat failed: ${error.message}` });
+    renderChatLog();
+  }
+}
+
+function getAudioDuration(file) {
+  return new Promise((resolve) => {
+    if (!file) {
+      resolve(0);
+      return;
+    }
+    const audio = document.createElement("audio");
+    const url = URL.createObjectURL(file);
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      resolve(Number.isFinite(audio.duration) ? audio.duration : 0);
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(0);
+    };
+    audio.src = url;
+  });
+}
+
+async function analyzeVoiceConfidence() {
+  const file = elements.voiceNoteFile.files?.[0];
+  const candidate = state.results?.ranked_candidates?.[state.selectedCandidateIndex];
+  if (!file || !candidate) {
+    elements.voiceResult.textContent = "Select a candidate and upload a voice note first.";
+    return;
+  }
+
+  elements.voiceResult.textContent = "Analyzing voice introduction...";
+  const duration = await getAudioDuration(file);
+  const form = new FormData();
+  form.append("audio", file);
+  form.append("candidate_name", candidate.name || "");
+  form.append("duration_seconds", duration.toFixed(2));
+  form.append("transcript", elements.voiceTranscript.value.trim());
+
+  try {
+    const data = await fetchJson("/assistant/voice-confidence", { method: "POST", body: form });
+    const notes = (data.notes || []).map((note) => `<li>${escapeHtml(note)}</li>`).join("");
+    elements.voiceResult.innerHTML = `
+      <div class="voice-score">
+        <strong>${escapeHtml(data.confidence_label)}</strong>
+        <span>${formatPct(data.confidence_score)}</span>
+      </div>
+      <p>Duration: ${Number(data.duration_seconds || 0).toFixed(1)} seconds</p>
+      <ul class="clean-list">${notes}</ul>
+      <p class="muted">${escapeHtml(data.disclaimer || "")}</p>
+    `;
+  } catch (error) {
+    elements.voiceResult.textContent = `Voice analysis failed: ${error.message}`;
+  }
 }
 
 function renderAnalytics() {
@@ -382,6 +554,8 @@ function renderAllResults() {
   syncCandidateSelector();
   renderRankings(ranked);
   renderCandidateDetail();
+  state.chatHistory = [];
+  renderAssistant();
   renderAnalytics();
   renderMining();
 }
@@ -389,6 +563,7 @@ function renderAllResults() {
 async function runSample() {
   const settings = getSettings();
   const form = new FormData();
+  form.append("recruiter_domain", byId("sampleRecruiterDomain").value.trim());
   form.append("role", byId("sampleRole").value);
   form.append("n_clusters", settings.n_clusters);
   form.append("min_support", settings.min_support);
@@ -424,6 +599,7 @@ async function runUpload() {
 
   const settings = getSettings();
   const form = new FormData();
+  form.append("recruiter_domain", byId("recruiterDomain").value.trim());
   form.append("jd_text", jdText);
   form.append("n_clusters", settings.n_clusters);
   form.append("min_support", settings.min_support);
@@ -540,8 +716,24 @@ function bindEvents() {
   byId("runUploadButton").addEventListener("click", () => runUpload());
   byId("candidateSelect").addEventListener("change", (event) => {
     state.selectedCandidateIndex = Number(event.target.value);
+    syncCandidateSelector();
     renderRankings(state.results.ranked_candidates || []);
     renderCandidateDetail();
+    state.chatHistory = [];
+    renderAssistant();
+  });
+  byId("assistantCandidateSelect").addEventListener("change", (event) => {
+    state.selectedCandidateIndex = Number(event.target.value);
+    syncCandidateSelector();
+    renderRankings(state.results.ranked_candidates || []);
+    renderCandidateDetail();
+    state.chatHistory = [];
+    renderAssistant();
+  });
+  byId("askChatButton").addEventListener("click", askCandidateQuestion);
+  byId("analyzeVoiceButton").addEventListener("click", analyzeVoiceConfidence);
+  byId("chatQuestion").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") askCandidateQuestion();
   });
   byId("refreshDatabaseButton").addEventListener("click", () => refreshDatabaseView().catch((error) => setStatus(`Database refresh failed: ${error.message}`, "error")));
   byId("downloadCsvButton").addEventListener("click", downloadCsv);

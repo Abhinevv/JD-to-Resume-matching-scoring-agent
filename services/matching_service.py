@@ -68,6 +68,7 @@ def get_sample_jd(role: str) -> str:
 def run_match_workflow(
     raw_resumes: List[Dict[str, Any]],
     jd_text: str,
+    recruiter_domain: str,
     n_clusters: int,
     min_support: float,
     score_weights: Dict[str, float],
@@ -76,6 +77,7 @@ def run_match_workflow(
     result = run_matching_pipeline(
         raw_resumes=raw_resumes,
         jd_text=jd_text,
+        recruiter_domain=recruiter_domain,
         n_clusters=n_clusters,
         min_support=min_support,
         score_weights=score_weights,

@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from services.recruiter_assistant import build_domain_context, enrich_candidate_for_recruiter
 from schemas.domain import JobDescriptionRecord, ResumeRecord
 from utils.data_mining import (
     get_skill_frequencies,
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 def run_matching_pipeline(
     raw_resumes: List[Dict],
     jd_text: str,
+    recruiter_domain: str = "",
     n_clusters: int = 4,
     min_support: float = 0.2,
     score_weights: Optional[Dict] = None,
@@ -67,6 +69,7 @@ def run_matching_pipeline(
         jd_embedding=jd_embedding,
         cluster_labels=cluster_labels,
         score_weights=score_weights,
+        recruiter_domain=recruiter_domain,
     )
 
     _persist_to_db(ranked_candidates)
@@ -84,6 +87,7 @@ def run_matching_pipeline(
     return {
         "ranked_candidates": ranked_candidates,
         "jd_info": jd_record.to_dict(),
+        "recruiter_context": build_domain_context(recruiter_domain, jd_record.required_skills),
         "apriori_itemsets": frequent_itemsets,
         "apriori_rules": rules,
         "skill_frequencies": skill_frequencies,
@@ -173,6 +177,7 @@ def _rank_candidates(
     jd_embedding: np.ndarray,
     cluster_labels: List[int],
     score_weights: Optional[Dict],
+    recruiter_domain: str,
 ) -> List[Dict]:
     """Compute per-resume scores, explanations, and final ranking."""
     ranked_candidates: List[Dict] = []
@@ -212,7 +217,8 @@ def _rank_candidates(
             project_breakdown,
             int(cluster_id),
         )
-        ranked_candidates.append({**resume.to_dict(), **explanation})
+        enriched = {**resume.to_dict(), **explanation}
+        ranked_candidates.append(enrich_candidate_for_recruiter(enriched, jd_record, recruiter_domain))
 
     ranked_candidates.sort(key=lambda item: item["match_score"], reverse=True)
     return ranked_candidates

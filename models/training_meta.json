@@ -1,19 +1,20 @@
 {
-  "csv_path": "C:\\Users\\Abhinav Nigade\\OneDrive\\Attachments\\Desktop\\DET MINIPROJECT\\project\\data\\kaggle\\resumes.csv",
+  "csv_path": "C:\\Users\\DHRUV\\Desktop\\Resume Scanner\\JD-to-Resume-matching-scoring-agent\\data\\kaggle\\resumes.csv",
   "columns": {
-    "path": "C:\\Users\\Abhinav Nigade\\OneDrive\\Attachments\\Desktop\\DET MINIPROJECT\\project\\data\\kaggle\\resumes.csv",
+    "path": "C:\\Users\\DHRUV\\Desktop\\Resume Scanner\\JD-to-Resume-matching-scoring-agent\\data\\kaggle\\resumes.csv",
     "text_column": "resume_text",
-    "role_column": "category",
-    "skill_column": null,
-    "n_rows_after_clean": 2000
+    "role_column": "role",
+    "skill_column": "skills",
+    "role_source": "column",
+    "n_rows_after_clean": 1000
   },
-  "n_samples": 2000,
-  "n_unique_roles": 16,
+  "n_samples": 1000,
+  "n_unique_roles": 8,
   "kmeans_clusters": 4,
   "cluster_sizes": {
-    "0": 357,
-    "1": 686,
-    "2": 323,
-    "3": 634
+    "0": 250,
+    "1": 250,
+    "2": 250,
+    "3": 250
   }
 }

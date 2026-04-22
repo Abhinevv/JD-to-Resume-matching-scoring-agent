@@ -205,7 +205,8 @@ textarea { resize: vertical; min-height: 180px; }
 .input-grid { grid-template-columns: 2fr 1fr; }
 
 .tab-button,
-.results-tab {
+.results-tab,
+.quick-question {
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
@@ -219,6 +220,11 @@ textarea { resize: vertical; min-height: 180px; }
 .results-tab.active {
   color: var(--text);
   background: linear-gradient(135deg, rgba(124, 200, 255, 0.18), rgba(79, 209, 165, 0.16));
+}
+
+.quick-question {
+  font-size: 0.84rem;
+  border-radius: 8px;
 }
 
 .tab-pane,
@@ -379,6 +385,87 @@ th { color: var(--muted); font-weight: 500; }
 .small { font-size: 0.82rem; line-height: 1.4; margin: 0; }
 .train-row { margin-top: 12px; }
 
+.assistant-section {
+  margin-top: 18px;
+}
+
+.assistant-section:first-child {
+  margin-top: 0;
+}
+
+.assistant-section h4 {
+  margin: 0 0 10px;
+}
+
+.clean-list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+.clean-list li {
+  margin-bottom: 8px;
+}
+
+.chat-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.chat-log {
+  min-height: 260px;
+  max-height: 360px;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.chat-message {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-message.assistant {
+  border-color: rgba(79, 209, 165, 0.36);
+}
+
+.chat-message p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.voice-result {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.voice-score {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.voice-score span {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 @media (max-width: 1080px) {
   .hero,
   .input-grid,
@@ -395,5 +482,6 @@ th { color: var(--muted); font-weight: 500; }
     border-radius: 24px;
   }
   .status-meta,
-  .detail-grid { grid-template-columns: 1fr; }
+  .detail-grid,
+  .chat-row { grid-template-columns: 1fr; }
 }

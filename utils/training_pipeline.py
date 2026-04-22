@@ -48,6 +48,12 @@ TEXT_COLUMNS = (
     "description",
     "Description",
     "summary",
+    "candidate_summary",
+    "profile",
+    "objective",
+    "content",
+    "raw_text",
+    "about",
 )
 ROLE_COLUMNS = (
     "role",
@@ -62,6 +68,11 @@ ROLE_COLUMNS = (
     "Position",
     "title",
     "Title",
+    "designation",
+    "Designation",
+    "current_role",
+    "target_role",
+    "job_category",
 )
 SKILL_COLUMNS = (
     "skills",
@@ -71,7 +82,49 @@ SKILL_COLUMNS = (
     "Tech Stack",
     "keywords",
     "Keywords",
+    "technical_skills",
+    "competencies",
+    "tools",
+    "tool_list",
+    "technology",
+    "technologies",
+    "software",
 )
+
+ROLE_INFERENCE_RULES = {
+    "Machine Learning Engineer": (
+        "mlops", "model serving", "model monitoring", "kubeflow", "mlflow",
+        "feature store", "inference api", "sagemaker",
+    ),
+    "Data Scientist": (
+        "machine learning", "scikit-learn", "tensorflow", "pytorch",
+        "statistics", "predictive model", "nlp", "computer vision",
+    ),
+    "Data Engineer": (
+        "spark", "airflow", "kafka", "etl", "data warehouse", "snowflake",
+        "databricks", "bigquery", "redshift", "data lake",
+    ),
+    "Cloud DevOps Engineer": (
+        "kubernetes", "terraform", "jenkins", "ci/cd", "prometheus",
+        "grafana", "linux", "helm", "infrastructure",
+    ),
+    "Full Stack Developer": (
+        "react", "node.js", "typescript", "html", "css", "graphql",
+        "frontend", "full stack", "web application",
+    ),
+    "Software Engineer": (
+        "java", "rest api", "microservices", "backend", "software engineer",
+        "spring", "django", "fastapi",
+    ),
+    "Data Analyst": (
+        "excel", "tableau", "power bi", "dashboard", "business intelligence",
+        "kpi", "reporting", "data visualization",
+    ),
+    "Business Analyst": (
+        "requirements", "stakeholder", "user stories", "process mapping",
+        "jira", "business analyst", "documentation",
+    ),
+}
 
 
 def _project_root() -> str:
@@ -84,14 +137,139 @@ def resolve_default_csv() -> str:
 
 
 def _pick_column(df: pd.DataFrame, candidates: Tuple[str, ...]) -> Optional[str]:
-    lower_map = {c.lower().strip(): c for c in df.columns}
+    lower_map = {_normalize_column_name(c): c for c in df.columns}
     for cand in candidates:
-        key = cand.lower().strip()
+        key = _normalize_column_name(cand)
         if key in lower_map:
             return lower_map[key]
-        if cand in df.columns:
-            return cand
+    for column in df.columns:
+        normalized = _normalize_column_name(column)
+        for cand in candidates:
+            cand_key = _normalize_column_name(cand)
+            if cand_key and (cand_key in normalized or normalized in cand_key):
+                return column
     return None
+
+
+def _normalize_column_name(name: Any) -> str:
+    """Normalize CSV headers so different naming styles can be matched."""
+    return re.sub(r"[^a-z0-9]+", "", str(name).lower())
+
+
+def _text_quality_score(series: pd.Series) -> float:
+    """Score whether a column looks like resume body text."""
+    values = series.dropna().astype(str)
+    if values.empty:
+        return 0.0
+    sample = values.head(80)
+    avg_len = float(sample.str.len().mean())
+    long_ratio = float((sample.str.len() > 120).mean())
+    unique_ratio = float(sample.nunique() / max(len(sample), 1))
+    joined = " ".join(sample.head(20).str.lower().tolist())
+    resume_terms = (
+        "experience", "skills", "education", "project", "summary", "developed",
+        "built", "python", "sql", "engineer", "analyst", "developer",
+    )
+    hits = sum(1 for term in resume_terms if term in joined)
+    return avg_len * 0.02 + long_ratio * 8 + unique_ratio * 3 + hits
+
+
+def _pick_text_column(df: pd.DataFrame) -> Optional[str]:
+    """Pick a resume text column by name first, then by content shape."""
+    named = _pick_column(df, TEXT_COLUMNS)
+    if named:
+        return named
+    object_columns = [column for column in df.columns if df[column].dtype == "object"]
+    if not object_columns:
+        return None
+    scored = sorted(
+        ((column, _text_quality_score(df[column])) for column in object_columns),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    return scored[0][0] if scored and scored[0][1] > 5 else None
+
+
+def _pick_skill_column(df: pd.DataFrame, text_col: Optional[str], role_col: Optional[str]) -> Optional[str]:
+    named = _pick_column(df, SKILL_COLUMNS)
+    if named:
+        return named
+    candidates = []
+    for column in df.columns:
+        if column in {text_col, role_col}:
+            continue
+        if df[column].dtype != "object":
+            continue
+        header = _normalize_column_name(column)
+        sample = " ".join(df[column].dropna().astype(str).head(50).str.lower().tolist())
+        delimiter_hits = sample.count(",") + sample.count(";") + sample.count("|")
+        skill_hits = sum(1 for term in ["python", "sql", "java", "react", "aws", "excel", "docker"] if term in sample)
+        header_hits = 4 if any(token in header for token in ["skill", "tool", "tech", "keyword", "competenc"]) else 0
+        if delimiter_hits + skill_hits >= 3:
+            candidates.append((column, delimiter_hits + skill_hits + header_hits))
+    return max(candidates, key=lambda item: item[1])[0] if candidates else None
+
+
+def _pick_role_column(df: pd.DataFrame, text_col: Optional[str]) -> Optional[str]:
+    named = _pick_column(df, ROLE_COLUMNS)
+    if named:
+        return named
+    best: Optional[Tuple[str, float]] = None
+    for column in df.columns:
+        if column == text_col or df[column].dtype != "object":
+            continue
+        sample = df[column].dropna().astype(str).str.strip()
+        if sample.empty:
+            continue
+        unique_ratio = sample.nunique() / max(len(sample), 1)
+        avg_len = sample.str.len().mean()
+        joined = " ".join(sample.head(80).str.lower().tolist())
+        role_hits = sum(1 for role in ROLE_INFERENCE_RULES for token in role.lower().split() if token in joined)
+        score = role_hits + (4 if unique_ratio <= 0.35 else 0) + (2 if avg_len <= 45 else 0)
+        if score > 3 and (best is None or score > best[1]):
+            best = (column, score)
+    return best[0] if best else None
+
+
+def _combine_resume_text(df: pd.DataFrame, text_col: Optional[str], role_col: Optional[str], skill_col: Optional[str]) -> pd.Series:
+    """Use a named text column, or combine useful object columns for odd CSVs."""
+    if text_col:
+        base = df[text_col].astype(str).fillna("")
+    else:
+        base = pd.Series([""] * len(df), index=df.index, dtype=str)
+
+    useful_columns = [
+        column for column in df.columns
+        if column not in {text_col, role_col, skill_col} and df[column].dtype == "object"
+    ]
+    if not text_col and useful_columns:
+        base = df[useful_columns].fillna("").astype(str).agg(" ".join, axis=1)
+    elif skill_col:
+        base = (base + " Skills: " + df[skill_col].astype(str).fillna("")).str.strip()
+
+    for column in useful_columns:
+        header = _normalize_column_name(column)
+        if any(token in header for token in ["skill", "tool", "tech", "keyword", "competenc"]):
+            base = (base + " " + df[column].astype(str).fillna("")).str.strip()
+    return base
+
+
+def _infer_role_from_text(text: str, fallback: str = "General Candidate") -> str:
+    lowered = str(text or "").lower()
+    scores: Dict[str, int] = {}
+    for role, terms in ROLE_INFERENCE_RULES.items():
+        scores[role] = sum(1 for term in terms if term in lowered)
+    best_role, best_score = max(scores.items(), key=lambda item: item[1])
+    return best_role if best_score > 0 else fallback
+
+
+def _normalize_roles(raw_roles: pd.Series, resume_texts: pd.Series) -> pd.Series:
+    roles = raw_roles.astype(str).fillna("").str.strip()
+    invalid = roles.str.len().eq(0) | roles.str.lower().isin({"nan", "none", "unknown", "resume", "candidate"})
+    if invalid.any():
+        inferred = resume_texts.apply(_infer_role_from_text)
+        roles = roles.mask(invalid, inferred)
+    return roles
 
 
 def load_training_dataframe(csv_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
@@ -108,9 +286,9 @@ def load_training_dataframe(csv_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]
     if df.empty:
         raise ValueError("CSV has no rows.")
 
-    text_col = _pick_column(df, TEXT_COLUMNS)
-    role_col = _pick_column(df, ROLE_COLUMNS)
-    skill_col = _pick_column(df, SKILL_COLUMNS)
+    text_col = _pick_text_column(df)
+    role_col = _pick_role_column(df, text_col)
+    skill_col = _pick_skill_column(df, text_col, role_col)
 
     info: Dict[str, Any] = {
         "path": path,
@@ -119,29 +297,31 @@ def load_training_dataframe(csv_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]
         "skill_column": skill_col,
     }
 
-    if not text_col:
+    if not text_col and not any(df[column].dtype == "object" for column in df.columns):
         raise ValueError(
-            "Could not find a resume text column. Expected one of: "
-            + ", ".join(TEXT_COLUMNS[:8])
-            + " ..."
+            "Could not find any text-like columns to build resume text from."
         )
-    if not role_col:
-        raise ValueError(
-            "Could not find a role / label column. Expected one of: "
-            + ", ".join(ROLE_COLUMNS[:8])
-            + " ..."
-        )
+
+    resume_text = _combine_resume_text(df, text_col, role_col, skill_col)
+    if role_col:
+        roles = _normalize_roles(df[role_col], resume_text)
+        role_source = "column"
+    else:
+        roles = resume_text.apply(_infer_role_from_text)
+        role_source = "inferred_from_resume_text"
 
     out = pd.DataFrame(
         {
-            "resume_text": df[text_col].astype(str).fillna(""),
-            "role": df[role_col].astype(str).fillna("").str.strip(),
+            "resume_text": resume_text.astype(str).fillna(""),
+            "role": roles,
         }
     )
     if skill_col:
         out["skills_raw"] = df[skill_col].astype(str).fillna("")
     else:
         out["skills_raw"] = ""
+
+    info["role_source"] = role_source
 
     # Drop rows with empty text or role
     out = out[(out["resume_text"].str.len() > 10) & (out["role"].str.len() > 0)]
@@ -254,8 +434,12 @@ def run_training_pipeline(
     labels = df["role"].tolist()
 
     # --- Supervised: role classifier (TF-IDF + Logistic Regression) ---
-    role_classifier.train(texts, labels)
-    result["classifier_trained"] = role_classifier.trained
+    if len(set(labels)) >= 2:
+        role_classifier.train(texts, labels)
+        result["classifier_trained"] = role_classifier.trained
+    else:
+        logger.warning("Classifier skipped because only one role class was available.")
+        result["classifier_trained"] = False
 
     # --- Unsupervised: K-Means on same TF-IDF space as classifier ---
     kmeans_fit = False
@@ -263,16 +447,20 @@ def run_training_pipeline(
     try:
         if role_classifier.trained:
             X = role_classifier.vectorizer.transform(texts)
-            k = max(2, min(n_clusters, len(df)))
-            km = KMeans(n_clusters=k, random_state=42, n_init=10)
-            km.fit(X)
-            labels_k = km.labels_
-            for lab in np.unique(labels_k):
-                cluster_sizes[int(lab)] = int(np.sum(labels_k == lab))
-            os.makedirs(MODEL_DIR, exist_ok=True)
-            with open(DATASET_KMEANS_PATH, "wb") as f:
-                pickle.dump(km, f)
-            kmeans_fit = True
+        else:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+
+            X = TfidfVectorizer(max_features=5000, ngram_range=(1, 2)).fit_transform(texts)
+        k = max(2, min(n_clusters, len(df)))
+        km = KMeans(n_clusters=k, random_state=42, n_init=10)
+        km.fit(X)
+        labels_k = km.labels_
+        for lab in np.unique(labels_k):
+            cluster_sizes[int(lab)] = int(np.sum(labels_k == lab))
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        with open(DATASET_KMEANS_PATH, "wb") as f:
+            pickle.dump(km, f)
+        kmeans_fit = True
     except Exception as exc:
         logger.warning("Dataset K-Means skipped: %s", exc)
 

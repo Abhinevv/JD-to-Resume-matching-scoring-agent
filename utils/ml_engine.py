@@ -97,6 +97,9 @@ class RoleClassifier:
         if len(texts) < 2:
             logger.warning("Not enough samples to train classifier (need >= 2).")
             return
+        if len(set(label for label in labels if str(label).strip())) < 2:
+            logger.warning("Need at least two role classes to train classifier.")
+            return
         try:
             encoded_labels = self.encoder.fit_transform(labels)
             features = self.vectorizer.fit_transform(texts)

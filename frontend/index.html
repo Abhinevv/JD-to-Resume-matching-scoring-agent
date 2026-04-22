@@ -87,6 +87,10 @@
           <div id="uploadTab" class="tab-pane active">
             <div class="stack">
               <label class="field">
+                <span>Recruiter Domain</span>
+                <input id="recruiterDomain" type="text" value="Data Science / ML" placeholder="Example: data science, software engineering, cloud devops">
+              </label>
+              <label class="field">
                 <span>Job Description</span>
                 <textarea id="jdText" rows="10" placeholder="Paste the job description here..."></textarea>
               </label>
@@ -101,6 +105,10 @@
 
           <div id="sampleTab" class="tab-pane">
             <div class="stack">
+              <label class="field">
+                <span>Recruiter Domain</span>
+                <input id="sampleRecruiterDomain" type="text" value="Data Science / ML" placeholder="Example: data science, data engineering">
+              </label>
               <label class="field">
                 <span>Target Role</span>
                 <select id="sampleRole">
@@ -152,6 +160,7 @@
         <div class="panel results-layout">
           <div class="results-nav">
             <button class="results-tab active" data-results-tab="rankingsPanel">Rankings</button>
+            <button class="results-tab" data-results-tab="assistantPanel">Recruiter Assistant</button>
             <button class="results-tab" data-results-tab="analyticsPanel">Analytics</button>
             <button class="results-tab" data-results-tab="miningPanel">Data Mining</button>
             <button class="results-tab" data-results-tab="databasePanel">Database</button>
@@ -169,6 +178,40 @@
                   <select id="candidateSelect"></select>
                 </div>
                 <div id="candidateDetail" class="detail-card"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="assistantPanel" class="results-pane">
+            <div class="two-column">
+              <div class="metric-surface">
+                <div class="detail-header">
+                  <h3>Candidate Chat</h3>
+                  <select id="assistantCandidateSelect"></select>
+                </div>
+                <div id="chatStarters" class="pill-row"></div>
+                <div id="chatLog" class="chat-log"></div>
+                <div class="chat-row">
+                  <input id="chatQuestion" type="text" placeholder="Ask about this candidate, skills, gaps, or interview questions">
+                  <button id="askChatButton" class="button button-primary">Ask</button>
+                </div>
+              </div>
+              <div class="metric-surface">
+                <h3>Interview Kit</h3>
+                <div id="interviewKit"></div>
+                <section class="assistant-section">
+                  <h3>Voice Introduction</h3>
+                  <label class="field">
+                    <span>Candidate voice note</span>
+                    <input id="voiceNoteFile" type="file" accept="audio/*">
+                  </label>
+                  <label class="field">
+                    <span>Optional transcript or recruiter notes</span>
+                    <textarea id="voiceTranscript" rows="4" placeholder="Paste what the candidate said, or short notes from the introduction..."></textarea>
+                  </label>
+                  <button id="analyzeVoiceButton" class="button button-secondary" type="button">Analyze Voice Confidence</button>
+                  <div id="voiceResult" class="voice-result muted">Upload an introduction voice note to estimate confidence.</div>
+                </section>
               </div>
             </div>
           </div>
